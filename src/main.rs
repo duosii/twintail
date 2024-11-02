@@ -7,11 +7,16 @@ mod subcommands;
 
 use clap::{Parser, Subcommand};
 use error::Error;
-use subcommands::fetch;
+use subcommands::{decrypt, encrypt, fetch};
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Fetches game assetbundle files from the game's official servers.
     Fetch(fetch::FetchArgs),
+    /// Decrypts the game's assetbundle files.
+    Decrypt(decrypt::DecryptArgs),
+    /// Encrypts unity assetbundle files.
+    Encrypt(encrypt::EncryptArgs),
 }
 
 #[derive(Debug, Parser)]
@@ -29,6 +34,12 @@ async fn main() -> Result<(), Error> {
     match &cli.command {
         Commands::Fetch(args) => {
             fetch::fetch(args).await?;
+        }
+        Commands::Decrypt(args) => {
+            decrypt::decrypt(args).await?;
+        }
+        Commands::Encrypt(args) => {
+            encrypt::encrypt(args).await?;
         }
     }
 

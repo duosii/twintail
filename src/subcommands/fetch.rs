@@ -4,7 +4,7 @@ use crate::{
     api::headers::Headers,
     constants::{header, url},
     crypto::aes_msgpack,
-    error::ApiError,
+    error::CommandError,
     models::{
         api::{GameVersion, UserAuthRequest, UserAuthResponse, UserRequest, UserResponse},
         enums::Platform,
@@ -22,14 +22,14 @@ pub struct FetchArgs {
     pub hash: String,
 
     /// The device platform to download the assets for.
-    #[arg(short, long, value_enum, default_value_t=Platform::Android)]
+    #[arg(short, long, value_enum, default_value_t = Platform::Android)]
     pub platform: Platform,
 
     /// The directory to output the downloaded files to
     pub out_dir: String,
 }
 
-pub async fn fetch(args: &FetchArgs) -> Result<(), ApiError> {
+pub async fn fetch(args: &FetchArgs) -> Result<(), CommandError> {
     let app_version = &args.version;
     let app_hash = &args.hash;
     let platform = &args.platform;
@@ -54,7 +54,9 @@ pub async fn fetch(args: &FetchArgs) -> Result<(), ApiError> {
     let set_cookie_header = issue_signature_response
         .headers_mut()
         .remove(header::name::SET_COOKIE)
-        .ok_or(ApiError::NotFound("set-cookie header not found.".into()))?;
+        .ok_or(CommandError::NotFound(
+            "set-cookie header not found.".into(),
+        ))?;
     headers.insert(header::name::COOKIE, set_cookie_header);
 
     // get the assetbundleHostHash from the game-version api
