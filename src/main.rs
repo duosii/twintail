@@ -4,6 +4,7 @@ mod crypto;
 mod error;
 mod models;
 mod subcommands;
+mod utils;
 
 use clap::{Parser, Subcommand};
 use error::Error;

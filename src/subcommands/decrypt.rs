@@ -1,8 +1,15 @@
-use crate::{crypto::assetbundle, error::CommandError};
+use crate::{
+    crypto::assetbundle,
+    error::{AssetbundleError, CommandError},
+    utils::scan_directory,
+};
 use clap::Args;
+use futures::stream::{self, StreamExt};
+use std::path::PathBuf;
 use tokio::{
-    fs::{self, File},
+    fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufReader},
+    time::Instant,
 };
 
 #[derive(Debug, Args)]
@@ -11,6 +18,10 @@ pub struct DecryptArgs {
     #[arg(long, short, default_value_t = false)]
     pub recursive: bool,
 
+    /// The maximum number of files to decrypt simultaneously.
+    #[arg(long, short, default_value_t = 12)]
+    pub concurrent: usize,
+
     /// Path to the file or directory to decrypt.
     pub in_path: String,
 
@@ -18,23 +29,64 @@ pub struct DecryptArgs {
     pub out_path: String,
 }
 
-pub async fn decrypt(args: &DecryptArgs) -> Result<(), CommandError> {
-    if !(fs::try_exists(&args.in_path).await?) {
-        return Err(CommandError::InvalidPath(args.in_path.to_string()));
-    }
-
+/// Decrypts a file at the input path into the output path.
+pub async fn decrypt_file(in_path: PathBuf, out_path: PathBuf) -> Result<(), AssetbundleError> {
     // decrypt
-    let in_file = File::open(&args.in_path).await?;
+    let in_file = File::open(in_path).await?;
     let mut reader = BufReader::new(in_file);
     let decrypted = assetbundle::decrypt(&mut reader).await?;
 
-    // write
+    // create parent folders if they do not exist
+    if let Some(parent) = out_path.parent() {
+        create_dir_all(parent).await?;
+    }
     let mut out_file = File::options()
         .write(true)
         .create(true)
-        .open(&args.out_path)
+        .open(out_path)
         .await?;
     out_file.write(&decrypted).await?;
+
+    Ok(())
+}
+
+pub async fn decrypt(args: &DecryptArgs) -> Result<(), CommandError> {
+    let in_path = PathBuf::from(&args.in_path);
+    let out_path = PathBuf::from(&args.out_path);
+
+    // get the paths that we need to decrypt
+    let paths = if in_path.is_dir() {
+        println!("Searching for files to decrypt...");
+        let paths = scan_directory(in_path.clone(), args.recursive).await?;
+        println!("Found {} file(s) to decrypt.", paths.len());
+        paths
+    } else {
+        println!("Decrypting {:?}", &in_path);
+        vec![in_path.clone()]
+    };
+
+    // asynchronously decrypt the files
+    let decrypt_start = Instant::now();
+
+    let decrypt_result: Vec<Result<(), AssetbundleError>> = stream::iter(paths)
+        .map(|path| {
+            let relative = path.strip_prefix(&in_path).ok().unwrap_or(&path);
+            let out = out_path.join(relative);
+            decrypt_file(path, out)
+        })
+        .buffer_unordered(args.concurrent)
+        .collect()
+        .await;
+    let success_count = decrypt_result
+        .iter()
+        .filter(|&result| result.is_ok())
+        .count();
+
+    println!(
+        "Successfully decrypted {} files in {:?}.",
+        success_count,
+        Instant::now().duration_since(decrypt_start)
+    );
 
     Ok(())
 }
