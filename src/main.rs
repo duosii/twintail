@@ -12,11 +12,11 @@ use subcommands::{decrypt, encrypt, fetch};
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Fetches game assetbundle files from the game's official servers.
+    /// Fetches game assetbundle files from the game's official servers
     Fetch(fetch::FetchArgs),
-    /// Decrypts the game's assetbundle files.
+    /// Decrypts the game's assetbundle files
     Decrypt(decrypt::DecryptArgs),
-    /// Encrypts unity assetbundle files.
+    /// Encrypts unity assetbundle files
     Encrypt(encrypt::EncryptArgs),
 }
 

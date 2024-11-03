@@ -21,7 +21,7 @@ pub struct FetchArgs {
     #[arg(long)]
     pub hash: String,
 
-    /// The device platform to download the assets for.
+    /// The device platform to download the assets for
     #[arg(short, long, value_enum, default_value_t = Platform::Android)]
     pub platform: Platform,
 
