@@ -16,7 +16,7 @@ enum Commands {
     Fetch(fetch::FetchArgs),
     /// Decrypts the game's assetbundle files
     Decrypt(decrypt::DecryptArgs),
-    /// Encrypts unity assetbundle files
+    /// Encrypts Unity assetbundle files
     Encrypt(encrypt::EncryptArgs),
 }
 

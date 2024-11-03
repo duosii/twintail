@@ -11,7 +11,7 @@ pub struct EncryptArgs {
     #[arg(long, short, default_value_t = 12)]
     pub concurrent: usize,
 
-    /// Path to the file or directory to decrypt
+    /// Path to the file or directory to encrypt
     pub in_path: String,
 
     /// Path to a directory or file to output to. If not provided, files are encrypted in-place.
