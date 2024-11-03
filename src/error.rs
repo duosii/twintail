@@ -31,9 +31,6 @@ pub enum CommandError {
 
     #[error("aes msgpack error: {0}")]
     AesMsgpack(String),
-
-    #[error("invalid path: {0}")]
-    InvalidPath(String),
 }
 
 impl From<Vec<CommandError>> for CommandError {

@@ -19,7 +19,7 @@ pub async fn scan_directory(
     dirs_to_scan.push_back(dir_path.clone());
 
     while let Some(scan_dir) = dirs_to_scan.pop_front() {
-        if let Some(mut read_dir) = fs::read_dir(scan_dir).await.ok() {
+        if let Ok(mut read_dir) = fs::read_dir(scan_dir).await {
             while let Ok(Some(path)) = read_dir.next_entry().await {
                 let path = path.path();
 

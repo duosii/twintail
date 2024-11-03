@@ -75,7 +75,7 @@ pub async fn fetch(args: &FetchArgs) -> Result<(), CommandError> {
 
     // create a user account
     let user_request_body = aes_msgpack::into_vec(&UserRequest {
-        platform: platform.clone(),
+        platform: *platform,
         device_model: "samsung SM-T860".into(), //header::value::DEVICE_MODEL.into(),
         operating_system: "Android OS 12 / API-32 (SP2A.220305.013/T860XXS5DWH1)".into(),
     })?;
@@ -92,7 +92,7 @@ pub async fn fetch(args: &FetchArgs) -> Result<(), CommandError> {
     // authorize user account
     let user_auth_request_body = aes_msgpack::into_vec(&UserAuthRequest {
         credential: user_response.credential,
-        deviceId: None,
+        device_id: None,
     })?;
     let user_auth_response = client
         .put(url::sekai::user_auth(

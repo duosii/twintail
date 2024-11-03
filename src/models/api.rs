@@ -40,7 +40,7 @@ pub struct UserResponse {
 #[serde(rename_all = "camelCase")]
 pub struct UserAuthRequest {
     pub credential: String,
-    pub deviceId: Option<String>,
+    pub device_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

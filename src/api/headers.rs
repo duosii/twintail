@@ -53,6 +53,7 @@ impl Default for Headers {
     }
 }
 
+#[derive(Default)]
 pub struct HeadersBuilder {
     headers: Headers,
     errors: Vec<CommandError>,
@@ -118,15 +119,6 @@ impl HeadersBuilder {
             Ok(self.headers)
         } else {
             Err(self.errors)
-        }
-    }
-}
-
-impl Default for HeadersBuilder {
-    fn default() -> Self {
-        Self {
-            headers: Headers::default(),
-            errors: Vec::new(),
         }
     }
 }
