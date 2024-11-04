@@ -1,7 +1,7 @@
-use crate::{crypto::assetbundle::CryptOperation, error::CommandError, utils::crypt_assetbundle};
-use clap::Args;
+use super::{crypt_assetbundle, CryptArgs};
+use crate::{constants::strings, crypto::assetbundle::CryptOperation, error::CommandError};
 
-#[derive(Debug, Args)]
+#[derive(Debug, clap::Args)]
 pub struct EncryptArgs {
     /// If the input is a directory, whether to recursively decrypt valid files in that directory
     #[arg(long, short, default_value_t = false)]
@@ -19,12 +19,16 @@ pub struct EncryptArgs {
 }
 
 pub async fn encrypt(args: &EncryptArgs) -> Result<(), CommandError> {
-    crypt_assetbundle(
-        &args.in_path,
-        args.recursive,
-        args.concurrent,
-        CryptOperation::Encrypt,
-        &args.out_path,
-    )
+    crypt_assetbundle(CryptArgs {
+        in_path: &args.in_path,
+        recursive: args.recursive,
+        concurrent: args.concurrent,
+        operation: CryptOperation::Encrypt,
+        strings: super::CryptStrings {
+            process: &strings::crypto::encrypt::process,
+            processed: &strings::crypto::encrypt::processed,
+        },
+        out_path: &args.out_path,
+    })
     .await
 }

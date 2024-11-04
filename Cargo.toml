@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 aes = "0.8.4"
+anstyle = "1.0.10"
 cbc = { version = "0.1.2", features = ["alloc"] }
 clap = { version = "4.5.20", features = ["derive"] }
 futures = "0.3.31"
+indicatif = "0.17.8"
 reqwest = "0.12.9"
 rmp-serde = "1.3.0"
 serde = { version = "1.0.214", features = ["derive"] }

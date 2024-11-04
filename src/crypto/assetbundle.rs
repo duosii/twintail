@@ -1,5 +1,6 @@
 use std::{io::SeekFrom, path::PathBuf};
 
+use indicatif::ProgressBar;
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader},

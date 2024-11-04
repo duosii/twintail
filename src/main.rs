@@ -7,8 +7,11 @@ mod subcommands;
 mod utils;
 
 use clap::{Parser, Subcommand};
-use error::Error;
-use subcommands::{decrypt, encrypt, fetch};
+use error::{CommandError, Error};
+use subcommands::{
+    crypt::{decrypt, encrypt},
+    fetch,
+};
 
 #[derive(Debug, Subcommand)]
 enum Commands {
@@ -21,7 +24,7 @@ enum Commands {
 }
 
 #[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, styles=utils::styles::get_clap_styles())]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -30,6 +33,7 @@ struct Cli {
 // cargo run fetch --version 4.0.5 --hash 2179da72-9de5-23a6-f388-9e5835098ce1 /assets
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    //println!("{}NO!", anstyle::RgbColor(255, 200, 255).render_fg());
     let cli = Cli::parse();
 
     match &cli.command {

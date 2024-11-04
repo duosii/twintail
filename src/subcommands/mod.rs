@@ -1,3 +1,2 @@
-pub mod decrypt;
-pub mod encrypt;
+pub mod crypt;
 pub mod fetch;

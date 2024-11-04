@@ -1,4 +1,5 @@
-use crate::{crypto::assetbundle::CryptOperation, error::CommandError, utils::crypt_assetbundle};
+use super::{crypt_assetbundle, CryptArgs, CryptStrings};
+use crate::{constants::strings, crypto::assetbundle::CryptOperation, error::CommandError};
 use clap::Args;
 
 #[derive(Debug, Args)]
@@ -19,12 +20,16 @@ pub struct DecryptArgs {
 }
 
 pub async fn decrypt(args: &DecryptArgs) -> Result<(), CommandError> {
-    crypt_assetbundle(
-        &args.in_path,
-        args.recursive,
-        args.concurrent,
-        CryptOperation::Decrypt,
-        &args.out_path,
-    )
+    crypt_assetbundle(CryptArgs {
+        in_path: &args.in_path,
+        recursive: args.recursive,
+        concurrent: args.concurrent,
+        operation: CryptOperation::Decrypt,
+        strings: super::CryptStrings {
+            process: &strings::crypto::decrypt::process,
+            processed: &strings::crypto::decrypt::processed,
+        },
+        out_path: &args.out_path,
+    })
     .await
 }
