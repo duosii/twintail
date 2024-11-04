@@ -1,4 +1,4 @@
-use super::{crypt_assetbundle, CryptArgs};
+use super::{crypt_assetbundle, CryptArgs, CryptStrings};
 use crate::{constants::strings, crypto::assetbundle::CryptOperation, error::CommandError};
 
 #[derive(Debug, clap::Args)]
@@ -18,15 +18,16 @@ pub struct EncryptArgs {
     pub out_path: Option<String>,
 }
 
+/// Encrypts a file/folder using the provided arguments.
 pub async fn encrypt(args: &EncryptArgs) -> Result<(), CommandError> {
     crypt_assetbundle(CryptArgs {
         in_path: &args.in_path,
         recursive: args.recursive,
         concurrent: args.concurrent,
         operation: CryptOperation::Encrypt,
-        strings: super::CryptStrings {
-            process: &strings::crypto::encrypt::process,
-            processed: &strings::crypto::encrypt::processed,
+        strings: CryptStrings {
+            process: strings::crypto::encrypt::PROCESS,
+            processed: strings::crypto::encrypt::PROCESSED,
         },
         out_path: &args.out_path,
     })

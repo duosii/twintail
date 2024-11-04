@@ -7,7 +7,7 @@ mod subcommands;
 mod utils;
 
 use clap::{Parser, Subcommand};
-use error::{CommandError, Error};
+use error::Error;
 use subcommands::{
     crypt::{decrypt, encrypt},
     fetch,

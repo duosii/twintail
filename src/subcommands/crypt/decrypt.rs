@@ -19,15 +19,16 @@ pub struct DecryptArgs {
     pub out_path: Option<String>,
 }
 
+/// Decrypts a file/folder using the provided arguments.
 pub async fn decrypt(args: &DecryptArgs) -> Result<(), CommandError> {
     crypt_assetbundle(CryptArgs {
         in_path: &args.in_path,
         recursive: args.recursive,
         concurrent: args.concurrent,
         operation: CryptOperation::Decrypt,
-        strings: super::CryptStrings {
-            process: &strings::crypto::decrypt::process,
-            processed: &strings::crypto::decrypt::processed,
+        strings: CryptStrings {
+            process: strings::crypto::decrypt::PROCESS,
+            processed: strings::crypto::decrypt::PROCESSED,
         },
         out_path: &args.out_path,
     })

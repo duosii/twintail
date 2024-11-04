@@ -1,10 +1,10 @@
 pub mod crypto {
     pub mod encrypt {
-        pub const process: &str = "Encrypting";
-        pub const processed: &str = "encrypted";
+        pub const PROCESS: &str = "Encrypting";
+        pub const PROCESSED: &str = "encrypted";
     }
     pub mod decrypt {
-        pub const process: &str = "Decrypting";
-        pub const processed: &str = "decrypted";
+        pub const PROCESS: &str = "Decrypting";
+        pub const PROCESSED: &str = "decrypted";
     }
 }
