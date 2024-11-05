@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
-use super::enums::Platform;
+use super::enums::{AssetbundleCategory, Platform};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -31,7 +33,7 @@ pub struct UserRequest {
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct UserResponse {
+pub struct UserSignup {
     pub user_registration: UserRegistration,
     pub credential: String,
 }
@@ -46,14 +48,57 @@ pub struct UserAuthRequest {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UserAuthResponse {
-    session_token: String,
-    app_version: String,
-    multi_play_version: String,
-    data_version: String,
-    asset_version: String,
-    remove_asset_version: String,
-    asset_hash: String,
-    app_version_status: String,
-    is_streaming_virtual_live_force_open_user: bool,
-    suite_master_split_path: Vec<String>,
+    pub session_token: String,
+    pub app_version: String,
+    pub multi_play_version: String,
+    pub data_version: String,
+    pub asset_version: String,
+    pub remove_asset_version: String,
+    pub asset_hash: String,
+    pub app_version_status: String,
+    pub is_streaming_virtual_live_force_open_user: bool,
+    pub suite_master_split_path: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Assetbundle {
+    pub bundle_name: String,
+    pub cache_file_name: String,
+    pub cache_directory_name: String,
+    pub hash: String,
+    pub category: AssetbundleCategory,
+    pub crc: usize,
+    pub file_size: usize,
+    pub dependencies: Vec<String>,
+    pub paths: Vec<String>,
+    pub is_builtin: bool,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetbundleInfo {
+    pub version: String,
+    pub os: String,
+    pub bundles: HashMap<String, Assetbundle>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppVersion {
+    pub system_profile: String,
+    pub app_version: String,
+    pub multi_play_version: String,
+    pub asset_version: String,
+    pub app_version_status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfo {
+    pub server_date: usize,
+    pub timezone: String,
+    pub profile: String,
+    pub maintenance_status: String,
+    pub app_versions: Vec<AppVersion>,
 }

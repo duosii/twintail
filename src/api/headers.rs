@@ -1,4 +1,4 @@
-use crate::{constants::header, error::CommandError, models::enums::Platform};
+use crate::{constants::header, error::ApiError, models::enums::Platform};
 use reqwest::header::{HeaderMap, HeaderValue, InvalidHeaderValue};
 
 pub struct Headers(pub HeaderMap<HeaderValue>);
@@ -42,7 +42,7 @@ impl Headers {
     }
 
     /// Clones the inner HeaderMap and returns it.
-    pub fn clone_inner(&self) -> HeaderMap {
+    pub fn get_map(&self) -> HeaderMap {
         self.0.clone()
     }
 }
@@ -56,7 +56,7 @@ impl Default for Headers {
 #[derive(Default)]
 pub struct HeadersBuilder {
     headers: Headers,
-    errors: Vec<CommandError>,
+    errors: Vec<ApiError>,
 }
 
 impl HeadersBuilder {
@@ -76,7 +76,7 @@ impl HeadersBuilder {
                 .0
                 .insert(header::name::APP_VERSION, header_value),
             Err(e) => {
-                self.errors.push(CommandError::InvalidHeaderValue(e));
+                self.errors.push(ApiError::InvalidHeaderValue(e));
                 None
             }
         };
@@ -88,7 +88,7 @@ impl HeadersBuilder {
         match HeaderValue::from_str(hash) {
             Ok(header_value) => self.headers.0.insert(header::name::APP_HASH, header_value),
             Err(e) => {
-                self.errors.push(CommandError::InvalidHeaderValue(e));
+                self.errors.push(ApiError::InvalidHeaderValue(e));
                 None
             }
         };
@@ -101,12 +101,12 @@ impl HeadersBuilder {
             Ok(platform_string) => match HeaderValue::from_str(&platform_string) {
                 Ok(header_value) => self.headers.0.insert(header::name::PLATFORM, header_value),
                 Err(e) => {
-                    self.errors.push(CommandError::InvalidHeaderValue(e));
+                    self.errors.push(ApiError::InvalidHeaderValue(e));
                     None
                 }
             },
             Err(e) => {
-                self.errors.push(CommandError::SerdePlain(e));
+                self.errors.push(ApiError::SerdePlain(e));
                 None
             }
         };
@@ -114,7 +114,7 @@ impl HeadersBuilder {
     }
 
     /// Build this builder, returning a result with any errors that occured.
-    pub fn build(self) -> Result<Headers, Vec<CommandError>> {
+    pub fn build(self) -> Result<Headers, Vec<ApiError>> {
         if self.errors.is_empty() {
             Ok(self.headers)
         } else {

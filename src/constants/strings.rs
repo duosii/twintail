@@ -8,3 +8,13 @@ pub mod crypto {
         pub const PROCESSED: &str = "decrypted";
     }
 }
+
+pub mod api {
+    pub mod error {
+        pub const UPGRADE_REQUIRED: &str =
+            "app version and/or hash are for an older version of the app. use newer values";
+        pub const INVALID_HASH_VERSION: &str = "invalid app version and/or hash provided";
+        pub const SET_COOKIE_NOT_FOUND: &str = "set-cookie header not found";
+        pub const FORBIDDEN_ASSETBUNDLE_INFO: &str = "invalid or outdated asset version provided";
+    }
+}

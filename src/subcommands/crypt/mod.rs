@@ -9,7 +9,7 @@ use crate::{
 };
 use futures::{stream, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 use tokio::time::Instant;
 
 pub struct CryptStrings<'a> {
@@ -43,6 +43,7 @@ pub async fn crypt_assetbundle<'a>(args: CryptArgs<'a>) -> Result<(), CommandErr
         color::TEXT.render_fg()
     );
     let scan_progress_bar = ProgressBar::new_spinner();
+    scan_progress_bar.enable_steady_tick(Duration::from_millis(100));
 
     let in_paths = if in_path.is_dir() {
         scan_directory(in_path.clone(), args.recursive).await?

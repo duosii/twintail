@@ -1,15 +1,15 @@
 use super::aes::{decrypt, encrypt};
-use crate::error::CommandError;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Convert an AES & msgpack encoded slice into something that implements the trait ``serde::de::DeserializeOwned``
-pub fn from_slice<T>(slice: &[u8]) -> Result<T, CommandError>
+pub fn from_slice<T>(slice: &[u8]) -> Result<T, rmp_serde::decode::Error>
 where
     T: DeserializeOwned,
 {
     // decrypt from AES
-    let decrypted = decrypt(slice)
-        .map_err(|_| CommandError::AesMsgpack("error when decrypting AES encoded body".into()))?;
+    let decrypted = decrypt(slice).map_err(|_| {
+        rmp_serde::decode::Error::Uncategorized("error when decrypting AES encoded body".into())
+    })?;
 
     // deserialize from msgpack
     let deserialized: T = rmp_serde::from_slice(&decrypted)?;
@@ -18,7 +18,7 @@ where
 }
 
 /// Convert something that implements the trait ``serde::Serialize`` into an AES & msgpack encoded value.
-pub fn into_vec<T>(value: &T) -> Result<Vec<u8>, CommandError>
+pub fn into_vec<T>(value: &T) -> Result<Vec<u8>, rmp_serde::encode::Error>
 where
     T: Serialize,
 {

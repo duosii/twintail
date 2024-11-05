@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CommandError {
+pub enum ApiError {
     #[error("reqwest error: {0}")]
     Reqwest(#[from] reqwest::Error),
 
@@ -17,24 +17,15 @@ pub enum CommandError {
     #[error("rmp_serde encode error: {0}")]
     RmpSerdeEncode(#[from] rmp_serde::encode::Error),
 
-    #[error("io error: {0}")]
-    Io(#[from] tokio::io::Error),
-
-    #[error("assetbundle error: {0}")]
-    Assetbundle(#[from] AssetbundleError),
-
     #[error("multiple errors: {0}")]
     Multi(String),
 
-    #[error("not found: {0}")]
-    NotFound(String),
-
-    #[error("aes msgpack error: {0}")]
-    AesMsgpack(String),
+    #[error("invalid request: {0}")]
+    InvalidRequest(String),
 }
 
-impl From<Vec<CommandError>> for CommandError {
-    fn from(value: Vec<CommandError>) -> Self {
+impl From<Vec<ApiError>> for ApiError {
+    fn from(value: Vec<ApiError>) -> Self {
         let errs_joined: String = value
             .into_iter()
             .map(|e| e.to_string())
@@ -43,6 +34,18 @@ impl From<Vec<CommandError>> for CommandError {
 
         Self::Multi(errs_joined)
     }
+}
+
+#[derive(Error, Debug)]
+pub enum CommandError {
+    #[error("api error: {0}")]
+    Api(#[from] ApiError),
+
+    #[error("io error: {0}")]
+    Io(#[from] tokio::io::Error),
+
+    #[error("assetbundle error: {0}")]
+    Assetbundle(#[from] AssetbundleError),
 }
 
 #[derive(Error, Debug)]

@@ -36,15 +36,17 @@ async fn main() -> Result<(), Error> {
     //println!("{}NO!", anstyle::RgbColor(255, 200, 255).render_fg());
     let cli = Cli::parse();
 
-    match &cli.command {
+    match cli.command {
         Commands::Fetch(args) => {
-            fetch::fetch(args).await?;
+            if let Err(err) = fetch::fetch(args).await {
+                panic!("{}", err.to_string())
+            }
         }
         Commands::Decrypt(args) => {
-            decrypt::decrypt(args).await?;
+            decrypt::decrypt(&args).await?;
         }
         Commands::Encrypt(args) => {
-            encrypt::encrypt(args).await?;
+            encrypt::encrypt(&args).await?;
         }
     }
 

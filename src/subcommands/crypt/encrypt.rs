@@ -8,7 +8,7 @@ pub struct EncryptArgs {
     pub recursive: bool,
 
     /// The maximum number of files to encrypt simultaneously
-    #[arg(long, short, default_value_t = 12)]
+    #[arg(long, short, default_value_t = crate::utils::available_parallelism())]
     pub concurrent: usize,
 
     /// Path to the file or directory to encrypt

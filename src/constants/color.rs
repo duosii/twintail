@@ -1,4 +1,4 @@
-use anstyle::{AnsiColor, Color, RgbColor};
+use anstyle::{AnsiColor, Color};
 
 // colors for clap
 pub mod clap {
@@ -14,5 +14,5 @@ pub mod clap {
 
 // general colors
 pub const TEXT: Color = Color::Ansi(AnsiColor::White);
-pub const TEXT_VARIANT: Color = Color::Rgb(RgbColor(200, 200, 200));
+pub const TEXT_VARIANT: Color = Color::Ansi(AnsiColor::BrightCyan);
 pub const SUCCESS: Color = Color::Ansi(AnsiColor::BrightGreen);

@@ -14,6 +14,7 @@ pub mod name {
     pub const UNITY_VERSION: &str = "x-unity-version";
     pub const SET_COOKIE: &str = "set-cookie";
     pub const COOKIE: &str = "cookie";
+    pub const SESSION_TOKEN: &str = "x-session-token";
 }
 
 // header values
