@@ -1,6 +1,9 @@
 use super::{
     headers::Headers,
-    url_provider::{SekaiProductionUrlProvider, SekaiUrlProvider},
+    url::{
+        global_provider::GlobalUrlProvider, japan_provider::JapanUrlProvider,
+        server_provider::ServerUrlProvider, UrlProvider,
+    },
 };
 use crate::{
     constants::{header, strings},
@@ -11,7 +14,7 @@ use crate::{
             AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse,
             UserRequest, UserSignup,
         },
-        enums::Platform,
+        enums::{Platform, Server},
     },
 };
 use reqwest::{Client, StatusCode};
@@ -23,30 +26,49 @@ pub struct SekaiApp {
     platform: Platform,
 }
 
-/// An API client that interfaces with the game's servers, providing various functions to query endpoints.
-pub struct SekaiClient<T: SekaiUrlProvider> {
-    headers: Headers,
-    client: Client,
-    url_provider: T,
-    pub app: SekaiApp,
-}
-
-impl SekaiClient<SekaiProductionUrlProvider> {
-    pub fn new(version: String, hash: String, platform: Platform) -> Result<Self, ApiError> {
-        Self::new_with_url_provider(
+impl SekaiApp {
+    pub fn new(version: String, hash: String, platform: Platform) -> Self {
+        Self {
             version,
             hash,
             platform,
-            SekaiProductionUrlProvider::default(),
-        )
+        }
     }
 }
 
-impl<T: SekaiUrlProvider> SekaiClient<T> {
-    pub fn new_with_url_provider(
+/// An API client that interfaces with the game's servers, providing various functions to query endpoints.
+pub struct SekaiClient<T: UrlProvider> {
+    headers: Headers,
+    client: Client,
+    url_provider: T,
+    server: Server,
+    pub app: SekaiApp,
+}
+
+impl SekaiClient<ServerUrlProvider> {
+    /// Creates a new SekaiClient that uses a ServerUrlProvider based on the passed ``server`` value.
+    pub async fn new(
         version: String,
         hash: String,
         platform: Platform,
+        server: Server,
+    ) -> Result<Self, ApiError> {
+        let provider = match server {
+            Server::Japan => ServerUrlProvider::Japan(JapanUrlProvider::default()),
+            Server::Global => ServerUrlProvider::Global(GlobalUrlProvider::default()),
+        };
+
+        Self::new_with_url_provider(version, hash, platform, server, provider).await
+    }
+}
+
+impl<T: UrlProvider> SekaiClient<T> {
+    /// Creates a new SekaiClient that uses a specific url provider.
+    pub async fn new_with_url_provider(
+        version: String,
+        hash: String,
+        platform: Platform,
+        server: Server,
         url_provider: T,
     ) -> Result<Self, ApiError> {
         let headers = Headers::builder()?
@@ -55,16 +77,20 @@ impl<T: SekaiUrlProvider> SekaiClient<T> {
             .platform(&platform)
             .build()?;
 
-        Ok(Self {
+        let mut client = Self {
             headers,
             client: Client::new(),
             url_provider,
-            app: SekaiApp {
-                version,
-                hash,
-                platform,
-            },
-        })
+            server,
+            app: SekaiApp::new(version, hash, platform),
+        };
+
+        // save the cloudfront signature only if required
+        if client.url_provider.issue_signature().is_some() {
+            client.issue_signature().await?;
+        }
+
+        Ok(client)
     }
 
     /// Performs a request to [`constants::url::sekai::ISSUE_SIGNATURE`].
@@ -73,10 +99,15 @@ impl<T: SekaiUrlProvider> SekaiClient<T> {
     /// which we need in order to communicate with the CDN.
     ///
     /// The function will automatically assign this cookie value to its Headers.
-    pub async fn issue_signature(&mut self) -> Result<(), ApiError> {
+    async fn issue_signature(&mut self) -> Result<(), ApiError> {
+        let url = self
+            .url_provider
+            .issue_signature()
+            .ok_or(ApiError::MissingUrl("issue_signature".to_string()))?;
+
         let request = self
             .client
-            .post(self.url_provider.issue_signature())
+            .post(url)
             .body(b"ffa3bd6214f33fe73cb72fee2262bedb".to_vec())
             .headers(self.headers.get_map());
 
@@ -212,13 +243,15 @@ impl<T: SekaiUrlProvider> SekaiClient<T> {
     pub async fn get_assetbundle_info(
         &self,
         asset_version: &str,
+        asstbundle_host_hash: &str,
     ) -> Result<AssetbundleInfo, ApiError> {
         let request = self
             .client
-            .get(
-                self.url_provider
-                    .assetbundle_info(asset_version, &self.app.platform),
-            )
+            .get(self.url_provider.assetbundle_info(
+                asstbundle_host_hash,
+                asset_version,
+                &self.app.platform,
+            ))
             .headers(self.headers.get_map());
 
         match request.send().await?.error_for_status() {
@@ -264,11 +297,38 @@ impl<T: SekaiUrlProvider> SekaiClient<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::url_provider::SekaiTestUrlProvider, models::api::AppVersion};
+    use crate::{api::url::test_provider::TestUrlProvider, models::api::AppVersion};
+
+    const SIGNATURE_COOKIE_VALUE: &str = "signature_cookie";
+
+    async fn get_client(server_url: String) -> SekaiClient<TestUrlProvider> {
+        SekaiClient::new_with_url_provider(
+            "3.9".to_string(),
+            "393939".to_string(),
+            Platform::Android,
+            Server::Japan,
+            TestUrlProvider::new(server_url),
+        )
+        .await
+        .unwrap()
+    }
+
+    async fn get_server() -> mockito::ServerGuard {
+        let mut server = mockito::Server::new_async().await;
+
+        server
+            .mock("POST", "/api/signature")
+            .with_status(200)
+            .with_header(header::name::SET_COOKIE, SIGNATURE_COOKIE_VALUE)
+            .create_async()
+            .await;
+
+        server
+    }
 
     #[tokio::test]
     async fn test_get_system() {
-        let mut server = mockito::Server::new_async().await;
+        let mut server = get_server().await;
 
         // create body
         let mock_system_info = SystemInfo {
@@ -287,26 +347,30 @@ mod tests {
         let mock_body = aes_msgpack::into_vec(&mock_system_info).unwrap();
 
         let mock = server
-            .mock("GET", "/")
+            .mock("GET", "/api/system")
             .with_status(200)
             .with_body(&mock_body)
             .create_async()
             .await;
 
-        let url_provider = SekaiTestUrlProvider::new(server.url());
-
-        let client = SekaiClient::new_with_url_provider(
-            "1.0.0".to_string(),
-            "abc123".to_string(),
-            Platform::Android,
-            url_provider,
-        )
-        .unwrap();
+        let client = get_client(server.url()).await;
 
         let result = client.get_system().await;
 
         mock.assert();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), mock_system_info)
+    }
+
+    #[tokio::test]
+    async fn test_issue_signature() {
+        let server = get_server().await;
+
+        let client = get_client(server.url()).await;
+
+        assert_eq!(
+            client.headers.0.get(header::name::COOKIE).unwrap(),
+            SIGNATURE_COOKIE_VALUE
+        )
     }
 }

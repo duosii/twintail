@@ -7,6 +7,7 @@ mod subcommands;
 mod utils;
 
 use clap::{Parser, Subcommand};
+use constants::color;
 use error::Error;
 use subcommands::{
     crypt::{decrypt, encrypt},
@@ -39,7 +40,12 @@ async fn main() -> Result<(), Error> {
     match cli.command {
         Commands::Fetch(args) => {
             if let Err(err) = fetch::fetch(args).await {
-                panic!("{}", err.to_string())
+                panic!(
+                    "{}{}{}",
+                    color::clap::ERROR.render_fg(),
+                    err.to_string(),
+                    color::TEXT.render_fg()
+                )
             }
         }
         Commands::Decrypt(args) => {

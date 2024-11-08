@@ -18,3 +18,12 @@ pub mod api {
         pub const FORBIDDEN_ASSETBUNDLE_INFO: &str = "invalid or outdated asset version provided";
     }
 }
+
+pub mod command {
+    pub const COMMUNICATING: &str = "Communicating with game servers...";
+    pub const PATHS_SAVED_TO: &str = "Paths saved to ";
+
+    pub mod error {
+        pub const NO_RECENT_VERSION: &str = "most recent game version not found";
+    }
+}

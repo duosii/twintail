@@ -1550,6 +1550,7 @@ dependencies = [
  "reqwest",
  "rmp-serde",
  "serde",
+ "serde_json",
  "serde_plain",
  "tempfile",
  "thiserror",

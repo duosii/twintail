@@ -15,4 +15,4 @@ pub mod clap {
 // general colors
 pub const TEXT: Color = Color::Ansi(AnsiColor::White);
 pub const TEXT_VARIANT: Color = Color::Ansi(AnsiColor::BrightCyan);
-pub const SUCCESS: Color = Color::Ansi(AnsiColor::BrightGreen);
+pub const SUCCESS: Color = Color::Ansi(AnsiColor::BrightCyan);

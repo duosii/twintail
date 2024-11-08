@@ -22,6 +22,9 @@ pub enum ApiError {
 
     #[error("invalid request: {0}")]
     InvalidRequest(String),
+
+    #[error("missing url: {0}")]
+    MissingUrl(String),
 }
 
 impl From<Vec<ApiError>> for ApiError {
@@ -46,6 +49,12 @@ pub enum CommandError {
 
     #[error("assetbundle error: {0}")]
     Assetbundle(#[from] AssetbundleError),
+
+    #[error("serde json error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
+
+    #[error("not found: {0}")]
+    NotFound(String),
 }
 
 #[derive(Error, Debug)]

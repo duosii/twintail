@@ -60,7 +60,7 @@ pub struct UserAuthResponse {
     pub suite_master_split_path: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Assetbundle {
     pub bundle_name: String,
@@ -75,11 +75,13 @@ pub struct Assetbundle {
     pub is_builtin: bool,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetbundleInfo {
     pub version: String,
     pub os: String,
+    pub hash: Option<String>,
+    pub host_hash: Option<String>,
     pub bundles: HashMap<String, Assetbundle>,
 }
 

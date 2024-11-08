@@ -20,4 +20,13 @@ impl ToString for Platform {
 pub enum AssetbundleCategory {
     OnDemand,
     StartApp,
+    AdditionalVoice,
+    Tutorial,
+}
+
+/// Represents a server for the game in a specific region.\
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
+pub enum Server {
+    Japan,
+    Global,
 }
