@@ -43,7 +43,7 @@ async fn main() -> Result<(), Error> {
                 panic!(
                     "{}{}{}",
                     color::clap::ERROR.render_fg(),
-                    err.to_string(),
+                    err,
                     color::TEXT.render_fg()
                 )
             }

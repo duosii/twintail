@@ -1,6 +1,8 @@
 pub mod global_provider;
 pub mod japan_provider;
 pub mod server_provider;
+
+#[cfg(test)]
 pub mod test_provider;
 
 use crate::{constants::url::sekai, models::enums::Platform};

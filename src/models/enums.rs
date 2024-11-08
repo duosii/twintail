@@ -1,6 +1,8 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
+use crate::constants::crypto;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
 pub enum Platform {
     Android,
@@ -24,9 +26,28 @@ pub enum AssetbundleCategory {
     Tutorial,
 }
 
-/// Represents a server for the game in a specific region.\
+/// Represents a server for the game in a specific region
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
 pub enum Server {
     Japan,
     Global,
+}
+
+pub struct AesConfig {
+    pub key: &'static [u8],
+    pub iv: &'static [u8],
+}
+impl Server {
+    pub fn get_aes_config(&self) -> AesConfig {
+        match self {
+            Self::Japan => AesConfig {
+                key: crypto::JAPAN_KEY,
+                iv: crypto::JAPAN_IV,
+            },
+            Self::Global => AesConfig {
+                key: crypto::GLOBAL_KEY,
+                iv: crypto::GLOBAL_IV,
+            },
+        }
+    }
 }

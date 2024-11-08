@@ -1,19 +1,16 @@
 use super::UrlProvider;
 use crate::{constants::url::sekai, models::enums::Platform};
 
-#[cfg(test)]
 pub struct TestUrlProvider {
     host: String,
 }
 
-#[cfg(test)]
 impl TestUrlProvider {
     pub fn new(url: String) -> Self {
         Self { host: url }
     }
 }
 
-#[cfg(test)]
 impl UrlProvider for TestUrlProvider {
     fn issue_signature(&self) -> Option<String> {
         Some(format!("{}{}", self.host, sekai::issue::SIGNATURE))

@@ -145,7 +145,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         match request.send().await?.error_for_status() {
             Ok(response) => {
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::FORBIDDEN) => Err(ApiError::InvalidRequest(
@@ -164,11 +164,14 @@ impl<T: UrlProvider> SekaiClient<T> {
     /// This function will return a portion of this response; the user_registration info
     /// and the credential.
     pub async fn user_signup(&self) -> Result<UserSignup, ApiError> {
-        let request_body = aes_msgpack::into_vec(&UserRequest {
-            platform: self.app.platform.clone(),
-            device_model: header::value::DEVICE_MODEL.into(),
-            operating_system: header::value::OPERATING_SYSTEM.into(),
-        })?;
+        let request_body = aes_msgpack::into_vec(
+            &UserRequest {
+                platform: self.app.platform,
+                device_model: header::value::DEVICE_MODEL.into(),
+                operating_system: header::value::OPERATING_SYSTEM.into(),
+            },
+            &self.server,
+        )?;
 
         let request = self
             .client
@@ -179,7 +182,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         match request.send().await?.error_for_status() {
             Ok(response) => {
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::UPGRADE_REQUIRED) => Err(ApiError::InvalidRequest(
@@ -205,10 +208,13 @@ impl<T: UrlProvider> SekaiClient<T> {
         user_id: usize,
         credential: String,
     ) -> Result<UserAuthResponse, ApiError> {
-        let request_body = aes_msgpack::into_vec(&UserAuthRequest {
-            credential,
-            device_id: None,
-        })?;
+        let request_body = aes_msgpack::into_vec(
+            &UserAuthRequest {
+                credential,
+                device_id: None,
+            },
+            &self.server,
+        )?;
 
         let request = self
             .client
@@ -220,7 +226,8 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                let auth_response: UserAuthResponse = aes_msgpack::from_slice(&bytes)?;
+                let auth_response: UserAuthResponse =
+                    aes_msgpack::from_slice(&bytes, &self.server)?;
 
                 // insert session token
                 self.headers
@@ -258,7 +265,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::FORBIDDEN) => Err(ApiError::InvalidRequest(
@@ -287,7 +294,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
             }
             Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
         }
@@ -329,6 +336,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_system() {
         let mut server = get_server().await;
+        let client = get_client(server.url()).await;
 
         // create body
         let mock_system_info = SystemInfo {
@@ -344,7 +352,7 @@ mod tests {
                 app_version_status: "available".into(),
             }],
         };
-        let mock_body = aes_msgpack::into_vec(&mock_system_info).unwrap();
+        let mock_body = aes_msgpack::into_vec(&mock_system_info, &client.server).unwrap();
 
         let mock = server
             .mock("GET", "/api/system")
@@ -352,8 +360,6 @@ mod tests {
             .with_body(&mock_body)
             .create_async()
             .await;
-
-        let client = get_client(server.url()).await;
 
         let result = client.get_system().await;
 
