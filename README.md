@@ -7,7 +7,7 @@ twintail currently supports the game's global and Japan servers.
 You can download the most recent version from the [releases page](../releases/latest) or [build it](#building).
 
 ## Usage
-Follow the [usage guide](docs/usage/en.md)
+Follow the [usage guide](/docs/usage/en.md)
 
 ## Building
 ### Dependencies
