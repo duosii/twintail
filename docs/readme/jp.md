@@ -4,7 +4,7 @@
 
 twintailは現在、グローバル版と日本版のサーバーに対応しています。
 
-最新バージョンは[リリースページ](/releases/latest)からダウンロードするか、[ビルド](#building)することができます。
+最新バージョンは[リリースページ](https://github.com/Duosion/twintail/releases/latest)からダウンロードするか、[ビルド](#building)することができます。
 
 ## 使用方法
 [使用方法ガイド](/docs/usage/jp.md)をご覧ください。
