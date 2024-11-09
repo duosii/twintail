@@ -54,4 +54,28 @@ impl UrlProvider for ServerUrlProvider {
             Self::Global(provider) => provider.assetbundle_info(host_hash, asset_version, platform),
         }
     }
+
+    fn assetbundle(&self, host_hash: &str, assetbundle_path: &str) -> String {
+        match self {
+            Self::Japan(provider) => provider.assetbundle(host_hash, assetbundle_path),
+            Self::Global(provider) => provider.assetbundle(host_hash, assetbundle_path),
+        }
+    }
+
+    fn assetbundle_path(
+        &self,
+        asset_version: &str,
+        asset_hash: &str,
+        platform: &Platform,
+        bundle_name: &str,
+    ) -> String {
+        match self {
+            Self::Japan(provider) => {
+                provider.assetbundle_path(asset_version, asset_hash, platform, bundle_name)
+            }
+            Self::Global(provider) => {
+                provider.assetbundle_path(asset_version, asset_hash, platform, bundle_name)
+            }
+        }
+    }
 }

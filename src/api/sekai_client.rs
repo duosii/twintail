@@ -21,9 +21,9 @@ use reqwest::{Client, StatusCode};
 
 /// A simple struct that stores information about the game's app.
 pub struct SekaiApp {
-    version: String,
-    hash: String,
-    platform: Platform,
+    pub version: String,
+    pub hash: String,
+    pub platform: Platform,
 }
 
 impl SekaiApp {
@@ -40,7 +40,7 @@ impl SekaiApp {
 pub struct SekaiClient<T: UrlProvider> {
     headers: Headers,
     client: Client,
-    url_provider: T,
+    pub url_provider: T,
     server: Server,
     pub app: SekaiApp,
 }
@@ -273,6 +273,41 @@ impl<T: UrlProvider> SekaiClient<T> {
                 )),
                 _ => Err(ApiError::InvalidRequest(err.to_string())),
             },
+        }
+    }
+
+    /// Performs a request to download an assetbundle.
+    ///
+    ///
+    /// This endpoint requires that the cloudfront cookies have been set.
+    ///
+    /// Returns a Vec of bytes, which is the assetbundle data.
+    pub async fn get_assetbundle(
+        &self,
+        asset_version: &str,
+        asset_hash: &str,
+        assetbundle_host_hash: &str,
+        bundle_name: &str,
+    ) -> Result<Vec<u8>, ApiError> {
+        let request = self
+            .client
+            .get(self.url_provider.assetbundle(
+                assetbundle_host_hash,
+                &self.url_provider.assetbundle_path(
+                    asset_version,
+                    asset_hash,
+                    &self.app.platform,
+                    bundle_name,
+                ),
+            ))
+            .headers(self.headers.get_map());
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                Ok(response.bytes().await?.to_vec())
+            }
+            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
         }
     }
 

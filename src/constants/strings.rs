@@ -20,8 +20,16 @@ pub mod api {
 }
 
 pub mod command {
+    // ab-info
     pub const COMMUNICATING: &str = "Communicating with game servers...";
     pub const PATHS_SAVED_TO: &str = "Paths saved to ";
+
+    // ab
+    pub const RETRIEVING_AB_INFO: &str = "Retrieving assetbundle info...";
+    pub const DOWNLOADING: &str = "Downloading files...";
+    pub const DOWNLOADED: &str = "downloaded";
+    pub const INVALID_RE: &str =
+        "Invalid filter regular expression provided. No filter will be applied.";
 
     pub mod error {
         pub const NO_RECENT_VERSION: &str = "most recent game version not found";

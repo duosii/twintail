@@ -1,5 +1,7 @@
+pub mod ab;
 pub mod abinfo;
 
+use ab::AbArgs;
 use abinfo::AbInfoArgs;
 use clap::{Args, Subcommand};
 
@@ -12,6 +14,8 @@ use crate::{
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Fetch assetbundles.
+    Ab(AbArgs),
     /// Fetch what assetbundles are available for download.
     AbInfo(AbInfoArgs),
 }
@@ -78,6 +82,7 @@ pub async fn get_assetbundle_info<T: UrlProvider>(
 pub async fn fetch(fetch_args: FetchArgs) -> Result<(), CommandError> {
     match fetch_args.command {
         Commands::AbInfo(args) => abinfo::abinfo(args).await?,
+        Commands::Ab(args) => ab::fetch_ab(args).await?,
     }
 
     Ok(())

@@ -2,7 +2,7 @@ use std::{io::SeekFrom, path::PathBuf};
 
 use tokio::{
     fs::{create_dir_all, File},
-    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader},
+    io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 
 use crate::error::AssetbundleError;
@@ -23,10 +23,10 @@ pub enum CryptOperation {
 /// Flips specific bytes in the provided reader's header into the provided buffer.
 ///
 /// Writes the rest of the file to the provided buffer.
-async fn crypt(
-    reader: &mut BufReader<File>,
-    out_buf: &mut Vec<u8>,
-) -> Result<(), AssetbundleError> {
+async fn crypt<T>(reader: &mut BufReader<T>, out_buf: &mut Vec<u8>) -> Result<(), AssetbundleError>
+where
+    T: AsyncRead + Unpin,
+{
     // flip header bytes
     let mut header_buf = [0u8; HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
@@ -50,10 +50,39 @@ async fn crypt(
     Ok(())
 }
 
+/// Decrypts an encrypted AssetBundle in-place.
+///
+/// Modifies the input buffer directly.
+pub async fn decrypt_in_place(buffer: &mut Vec<u8>) -> Result<(), AssetbundleError> {
+    // Check if the file contains the magic
+    if buffer.len() < SEKAI_ASSETBUNDLE_MAGIC.len()
+        || &buffer[..SEKAI_ASSETBUNDLE_MAGIC.len()] != SEKAI_ASSETBUNDLE_MAGIC
+    {
+        return Err(AssetbundleError::NotEncrypted());
+    }
+
+    // Remove the magic bytes
+    buffer.drain(..SEKAI_ASSETBUNDLE_MAGIC.len());
+
+    // Flip header bytes in-place
+    for i in (0..HEADER_SIZE.min(buffer.len())).step_by(HEADER_BLOCK_SIZE) {
+        for j in 0..DECRYPT_SIZE.min(HEADER_BLOCK_SIZE) {
+            if i + j < buffer.len() {
+                buffer[i + j] = !buffer[i + j];
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Decrypts an encrypted AssetBundle, returning the decrypted bytes.
 ///
 /// Implementation credit: https://github.com/mos9527/sssekai/blob/main/sssekai/crypto/AssetBundle.py
-pub async fn decrypt(reader: &mut BufReader<File>) -> Result<Vec<u8>, AssetbundleError> {
+pub async fn decrypt<T>(reader: &mut BufReader<T>) -> Result<Vec<u8>, AssetbundleError>
+where
+    T: AsyncRead + Unpin,
+{
     // see if the file contains the magic
     let mut magic_buf = vec![0; SEKAI_ASSETBUNDLE_MAGIC.len()];
     reader.read_exact(&mut magic_buf).await?;
@@ -70,7 +99,10 @@ pub async fn decrypt(reader: &mut BufReader<File>) -> Result<Vec<u8>, Assetbundl
 /// Encrypts an AssetBundle, returning the encrypted bytes.
 ///
 /// Implementation credit: https://github.com/mos9527/sssekai/blob/main/sssekai/crypto/AssetBundle.py
-pub async fn encrypt(reader: &mut BufReader<File>) -> Result<Vec<u8>, AssetbundleError> {
+pub async fn encrypt<T>(reader: &mut BufReader<T>) -> Result<Vec<u8>, AssetbundleError>
+where
+    T: AsyncWrite + AsyncSeek + AsyncRead + Unpin,
+{
     // check magic to ensure that it's a unity asset bundle.
     let mut magic_buf = vec![0; UNITY_ASSETBUNDLE_MAGIC.len()];
     reader.read_exact(&mut magic_buf).await?;
@@ -148,6 +180,20 @@ mod tests {
         let original = tokio::fs::read(&input_path).await?;
         let decrypted = tokio::fs::read(&decrypted_path).await?;
         assert_eq!(original, decrypted);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_in_place() -> Result<(), AssetbundleError> {
+        // Create a mock encrypted AssetBundle
+        let mut mock_bundle = vec![];
+        mock_bundle.extend(SEKAI_ASSETBUNDLE_MAGIC);
+        mock_bundle.extend((0..CHUNK_SIZE).into_iter().map(|_| 0x0));
+
+        // decrypt
+        decrypt_in_place(&mut mock_bundle).await?;
+        assert_eq!(mock_bundle.len(), CHUNK_SIZE);
 
         Ok(())
     }

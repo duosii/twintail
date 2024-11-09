@@ -53,4 +53,27 @@ impl UrlProvider for JapanUrlProvider {
             platform.to_string()
         )
     }
+
+    fn assetbundle(&self, host_hash: &str, assetbundle_path: &str) -> String {
+        format!(
+            "https://production-{}-assetbundle.sekai.colorfulpalette.org/{}",
+            host_hash, assetbundle_path
+        )
+    }
+
+    fn assetbundle_path(
+        &self,
+        asset_version: &str,
+        asset_hash: &str,
+        platform: &Platform,
+        bundle_name: &str,
+    ) -> String {
+        format!(
+            "{}/{}/{}/{}",
+            asset_version,
+            asset_hash,
+            platform.to_string(),
+            bundle_name
+        )
+    }
 }

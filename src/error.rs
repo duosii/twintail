@@ -53,6 +53,9 @@ pub enum CommandError {
     #[error("serde json error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
+    #[error("not enough space: {0}")]
+    NotEnoughSpace(String),
+
     #[error("not found: {0}")]
     NotFound(String),
 }

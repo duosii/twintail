@@ -47,4 +47,24 @@ impl UrlProvider for GlobalUrlProvider {
             platform.to_string()
         )
     }
+
+    fn assetbundle(&self, _: &str, assetbundle_path: &str) -> String {
+        format!("https://assetbundle.sekai-en.com/{}", assetbundle_path)
+    }
+
+    fn assetbundle_path(
+        &self,
+        asset_version: &str,
+        asset_hash: &str,
+        platform: &Platform,
+        bundle_name: &str,
+    ) -> String {
+        format!(
+            "{}/{}/{}/{}",
+            asset_version,
+            asset_hash,
+            platform.to_string(),
+            bundle_name
+        )
+    }
 }
