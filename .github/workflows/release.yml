@@ -23,7 +23,7 @@ jobs:
             asset_name: twintail-linux
           - os: windows-latest
             artifact_name: twintail.exe
-            asset_name: twintail-windows-x64.exe
+            asset_name: twintail-windows.exe
 
     steps:
     - uses: actions/checkout@v2

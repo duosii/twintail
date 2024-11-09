@@ -125,7 +125,7 @@ async fn download_bundle(
     out_file.write_all(&ab_data).await?;
 
     // increment progress
-    download_progress.inc(bundle.file_size as u64);
+    download_progress.inc(bundle.file_size);
     Ok(())
 }
 
@@ -134,7 +134,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
 
     // create assetbundle spinner
     println!(
-        "{}[1/] {}{}",
+        "{}[1/2] {}{}",
         color::TEXT_VARIANT.render_fg(),
         color::TEXT.render_fg(),
         strings::command::RETRIEVING_AB_INFO,
@@ -168,6 +168,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
 
     // convert out_dir to a path.
     let out_dir = Path::new(&args.out_dir);
+    create_dir_all(out_dir).await?;
 
     // calculate out paths
     let mut total_bundle_size = 0;
@@ -216,7 +217,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
 
     // create download progress bar
     println!(
-        "{}[2/] {}{}",
+        "{}[2/2] {}{}",
         color::TEXT_VARIANT.render_fg(),
         color::TEXT.render_fg(),
         strings::command::DOWNLOADING,

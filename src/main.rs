@@ -16,7 +16,7 @@ use subcommands::{
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Fetches game assetbundle files from the game's official servers
+    /// Commands that fetch assets from the game.
     Fetch(fetch::FetchArgs),
     /// Decrypts the game's assetbundle files
     Decrypt(decrypt::DecryptArgs),
