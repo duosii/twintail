@@ -76,4 +76,8 @@ impl UrlProvider for JapanUrlProvider {
             bundle_name
         )
     }
+
+    fn suitemasterfile(&self, file_path: &str) -> String {
+        format!("{}{}/{}", self.hosts.game, sekai::game::API, file_path)
+    }
 }

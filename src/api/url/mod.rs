@@ -44,7 +44,6 @@ pub trait UrlProvider {
     fn assetbundle_info(&self, host_hash: &str, asset_version: &str, platform: &Platform)
         -> String;
     fn assetbundle(&self, host_hash: &str, assetbundle_path: &str) -> String;
-
     fn assetbundle_path(
         &self,
         asset_version: &str,
@@ -52,4 +51,5 @@ pub trait UrlProvider {
         platform: &Platform,
         bundle_name: &str,
     ) -> String;
+    fn suitemasterfile(&self, file_path: &str) -> String;
 }

@@ -13,6 +13,7 @@ pub mod sekai {
     pub mod game {
         pub const JAPAN_HOST: &str = "https://production-game-api.sekai.colorfulpalette.org";
         pub const GLOBAL_HOST: &str = "https://n-production-game-api.sekai-en.com";
+        pub const API: &str = "/api";
         pub const USER: &str = "/api/user";
         pub const USER_AUTH: &str = "/api/user";
         pub const SYSTEM: &str = "/api/system";

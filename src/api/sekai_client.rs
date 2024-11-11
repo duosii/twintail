@@ -18,6 +18,7 @@ use crate::{
     },
 };
 use reqwest::{Client, StatusCode};
+use serde_json::Value;
 
 /// A simple struct that stores information about the game's app.
 pub struct SekaiApp {
@@ -323,6 +324,29 @@ impl<T: UrlProvider> SekaiClient<T> {
         let request = self
             .client
             .get(self.url_provider.system())
+            .headers(self.headers.get_map());
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                let bytes = response.bytes().await?;
+                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+            }
+            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
+        }
+    }
+
+    /// Performs a request to download a suitemasterfile.
+    ///
+    /// The suitemasterfile endpoint is used for download split suite master files.
+    ///
+    /// These files contain information about what character cards and gacha banners exist among many other things.
+    ///
+    /// This function will, if successful, return a ``serde_json::Value`` representing the suitemasterfile.
+    pub async fn get_suitemasterfile(&self, file_path: &str) -> Result<Value, ApiError> {
+        let request = self
+            .client
+            .get(self.url_provider.suitemasterfile(file_path))
             .headers(self.headers.get_map());
 
         match request.send().await?.error_for_status() {

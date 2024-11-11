@@ -67,4 +67,8 @@ impl UrlProvider for GlobalUrlProvider {
             bundle_name
         )
     }
+
+    fn suitemasterfile(&self, file_path: &str) -> String {
+        format!("{}{}/{}", self.hosts.game, sekai::game::API, file_path)
+    }
 }

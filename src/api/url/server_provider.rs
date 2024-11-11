@@ -78,4 +78,11 @@ impl UrlProvider for ServerUrlProvider {
             }
         }
     }
+
+    fn suitemasterfile(&self, file_path: &str) -> String {
+        match self {
+            Self::Japan(provider) => provider.suitemasterfile(file_path),
+            Self::Global(provider) => provider.suitemasterfile(file_path),
+        }
+    }
 }
