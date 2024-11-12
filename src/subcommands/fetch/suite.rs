@@ -5,11 +5,10 @@ use crate::{
     constants::{color, strings},
     error::CommandError,
     models::enums::{Platform, Server},
-    utils::progress::WithProgress,
+    utils::progress::{ProgressBar, WithProgress},
 };
 use clap::Args;
 use futures::{stream, StreamExt};
-use indicatif::{ProgressBar, ProgressStyle};
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
@@ -95,8 +94,7 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::COMMUNICATING,
     );
-    let login_spinner = ProgressBar::new_spinner();
-    login_spinner.enable_steady_tick(Duration::from_millis(100));
+    let login_spinner = ProgressBar::spinner();
 
     // see what suite master split files are available for download
     let user_signup = client.user_signup().await?;
@@ -119,11 +117,8 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::DOWNLOADING,
     );
-    let download_progress = ProgressBar::new(split_count as u64).with_style(
-        ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}")
-            .unwrap_or(ProgressStyle::default_bar())
-            .progress_chars("#-"),
-    );
+    let download_progress = ProgressBar::new(split_count as u64);
+    download_progress.enable_steady_tick(Duration::from_millis(100));
 
     // download suite master split files
     let out_path = Path::new(&args.out_dir);

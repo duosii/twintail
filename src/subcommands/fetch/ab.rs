@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use crate::{
@@ -16,11 +16,11 @@ use crate::{
         enums::{Platform, Server},
     },
     subcommands::fetch::get_assetbundle_info,
+    utils::progress::ProgressBar,
 };
 use clap::Args;
 use futures::{stream, StreamExt};
 use humansize::{format_size, DECIMAL};
-use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 use tokio::{
     fs::{create_dir_all, File},
@@ -92,7 +92,7 @@ async fn download_bundle(
     bundle: &Assetbundle,
     out_path: &Path,
     path_args: &AssetbundlePathArgs,
-    download_progress: &ProgressBar,
+    download_progress: &indicatif::ProgressBar,
     decrypt: bool,
 ) -> Result<(), CommandError> {
     // check hash of existing file
@@ -139,8 +139,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::RETRIEVING_AB_INFO,
     );
-    let ab_info_spinner = ProgressBar::new_spinner();
-    ab_info_spinner.enable_steady_tick(Duration::from_millis(100));
+    let ab_info_spinner = ProgressBar::spinner();
 
     // get assetbundle info
     let assetbundle_info = if let Some(path) = args.info {
@@ -222,13 +221,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::DOWNLOADING,
     );
-    let download_progress = ProgressBar::new(total_bundle_size).with_style(
-        ProgressStyle::with_template(
-            "[{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})",
-        )
-        .unwrap_or(ProgressStyle::default_bar())
-        .progress_chars("#-"),
-    );
+    let download_progress = ProgressBar::download(total_bundle_size);
 
     // download bundles
     let download_start = Instant::now();

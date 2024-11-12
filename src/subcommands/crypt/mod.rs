@@ -5,11 +5,13 @@ use crate::{
     constants::color,
     crypto::assetbundle::{crypt_file, CryptOperation},
     error::{AssetbundleError, CommandError},
-    utils::{fs::scan_directory, progress::WithProgress},
+    utils::{
+        fs::scan_path,
+        progress::{ProgressBar, WithProgress},
+    },
 };
 use futures::{stream, StreamExt};
-use indicatif::{ProgressBar, ProgressStyle};
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 use tokio::time::Instant;
 
 pub struct CryptStrings<'a> {
@@ -42,18 +44,14 @@ pub async fn crypt_assetbundle<'a>(args: CryptArgs<'a>) -> Result<(), CommandErr
         color::TEXT_VARIANT.render_fg(),
         color::TEXT.render_fg()
     );
-    let scan_progress_bar = ProgressBar::new_spinner();
-    scan_progress_bar.enable_steady_tick(Duration::from_millis(100));
+    let scan_progress_bar = ProgressBar::spinner();
 
-    let in_paths = if in_path.is_dir() {
-        scan_directory(in_path.clone(), args.recursive).await?
-    } else {
-        vec![in_path.clone()]
-    };
+    let in_paths = scan_path(&in_path, args.recursive).await?;
+
     scan_progress_bar.finish_and_clear();
 
     // start the processing step
-    let decrypt_start = Instant::now();
+    let crypt_start = Instant::now();
     println!(
         "{}[2/2] {}{} files...",
         color::TEXT_VARIANT.render_fg(),
@@ -76,12 +74,9 @@ pub async fn crypt_assetbundle<'a>(args: CryptArgs<'a>) -> Result<(), CommandErr
         .collect();
 
     // asynchronously encrypt/decrypt the files
-    let total_path_count: u64 = in_out_paths.len() as u64;
-    let progress_bar = ProgressBar::new(total_path_count).with_style(
-        ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}")
-            .unwrap_or(ProgressStyle::default_bar())
-            .progress_chars("#-"),
-    );
+    let total_path_count = in_out_paths.len() as u64;
+    let progress_bar = ProgressBar::new(total_path_count);
+
     let decrypt_result: Vec<Result<(), AssetbundleError>> = stream::iter(&in_out_paths)
         .map(|paths| crypt_file(&paths.0, &paths.1, &args.operation).with_progress(&progress_bar))
         .buffer_unordered(args.concurrent)
@@ -100,7 +95,7 @@ pub async fn crypt_assetbundle<'a>(args: CryptArgs<'a>) -> Result<(), CommandErr
         args.strings.processed,
         success_count,
         total_path_count,
-        Instant::now().duration_since(decrypt_start),
+        Instant::now().duration_since(crypt_start),
         color::TEXT.render_fg(),
     );
 

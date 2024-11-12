@@ -1,7 +1,6 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use clap::Args;
-use indicatif::ProgressBar;
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
@@ -13,6 +12,7 @@ use crate::{
     error::CommandError,
     models::enums::{Platform, Server},
     subcommands::fetch::get_assetbundle_info,
+    utils::progress::ProgressBar,
 };
 
 #[derive(Debug, Args)]
@@ -53,8 +53,7 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::COMMUNICATING,
     );
-    let communicate_spinner = ProgressBar::new_spinner();
-    communicate_spinner.enable_steady_tick(Duration::from_millis(100));
+    let communicate_spinner = ProgressBar::spinner();
 
     let mut client = SekaiClient::new(args.version, args.hash, args.platform, args.server).await?;
 

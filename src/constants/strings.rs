@@ -31,7 +31,13 @@ pub mod command {
     pub const INVALID_RE: &str =
         "Invalid filter regular expression provided. No filter will be applied.";
 
+    // encrypt suite
+    pub const SUITE_PROCESSING: &str = "Processing suitemaster files...";
+    pub const SUITE_SAVING: &str = "Saving encrypted suitemaster files...";
+    pub const SUITE_ENCRYPTED_FILE_NAME: &str = "00_suitemasterfile";
+
     pub mod error {
         pub const NO_RECENT_VERSION: &str = "most recent game version not found";
+        pub const SUITE_DESERIALIZE_ERROR: &str = "error when deserializing suitemasterfile: ";
     }
 }

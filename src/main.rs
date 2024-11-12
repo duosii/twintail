@@ -16,11 +16,11 @@ use subcommands::{
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Commands that fetch assets from the game.
+    /// Commands that fetch assets from the game
     Fetch(fetch::FetchArgs),
-    /// Decrypts the game's assetbundle files
+    /// Commands that decrypt files related to the game
     Decrypt(decrypt::DecryptArgs),
-    /// Encrypts Unity assetbundle files
+    /// Commands that encrypt files related to the game
     Encrypt(encrypt::EncryptArgs),
 }
 
@@ -31,29 +31,24 @@ struct Cli {
     command: Commands,
 }
 
-// cargo run fetch --version 4.0.5 --hash 2179da72-9de5-23a6-f388-9e5835098ce1 /assets
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    //println!("{}NO!", anstyle::RgbColor(255, 200, 255).render_fg());
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Fetch(args) => {
-            if let Err(err) = fetch::fetch(args).await {
-                panic!(
-                    "{}{}{}",
-                    color::clap::ERROR.render_fg(),
-                    err,
-                    color::TEXT.render_fg()
-                )
-            }
-        }
-        Commands::Decrypt(args) => {
-            decrypt::decrypt(&args).await?;
-        }
-        Commands::Encrypt(args) => {
-            encrypt::encrypt(&args).await?;
-        }
+    let result = match cli.command {
+        Commands::Fetch(args) => fetch::fetch(args).await,
+        Commands::Decrypt(args) => decrypt::decrypt(args).await,
+        Commands::Encrypt(args) => encrypt::encrypt(args).await,
+    };
+
+    // print error if result is an error
+    if let Err(err) = result {
+        println!(
+            "{}{}{}",
+            color::clap::ERROR.render_fg(),
+            err,
+            color::TEXT.render_fg()
+        )
     }
 
     Ok(())

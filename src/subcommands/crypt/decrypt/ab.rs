@@ -1,9 +1,13 @@
-use super::{crypt_assetbundle, CryptArgs, CryptStrings};
-use crate::{constants::strings, crypto::assetbundle::CryptOperation, error::CommandError};
+use crate::{
+    constants::strings,
+    crypto::assetbundle::CryptOperation,
+    error::CommandError,
+    subcommands::crypt::{crypt_assetbundle, CryptArgs, CryptStrings},
+};
 use clap::Args;
 
 #[derive(Debug, Args)]
-pub struct DecryptArgs {
+pub struct DecryptAbArgs {
     /// If the input is a directory, whether to recursively decrypt valid files in that directory
     #[arg(long, short, default_value_t = false)]
     pub recursive: bool,
@@ -20,7 +24,7 @@ pub struct DecryptArgs {
 }
 
 /// Decrypts a file/folder using the provided arguments.
-pub async fn decrypt(args: &DecryptArgs) -> Result<(), CommandError> {
+pub async fn decrypt_ab(args: &DecryptAbArgs) -> Result<(), CommandError> {
     crypt_assetbundle(CryptArgs {
         in_path: &args.in_path,
         recursive: args.recursive,
