@@ -62,12 +62,12 @@ pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::SUITE_PROCESSING,
     );
-    let deserialize_progress = ProgressBar::new(to_encrypt_paths.len() as u64);
+    let deserialize_progress = ProgressBar::progress(to_encrypt_paths.len() as u64);
 
     // deserialize all paths to [`serde_json::Value`]s.
     let deserialize_results: Vec<Result<(String, Value), CommandError>> =
         stream::iter(&to_encrypt_paths)
-            .map(|path| deserialize_file(&path).with_progress(&deserialize_progress))
+            .map(|path| deserialize_file(path).with_progress(&deserialize_progress))
             .buffer_unordered(args.concurrent)
             .collect()
             .await;

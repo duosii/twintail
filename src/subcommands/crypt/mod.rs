@@ -75,7 +75,7 @@ pub async fn crypt_assetbundle<'a>(args: CryptArgs<'a>) -> Result<(), CommandErr
 
     // asynchronously encrypt/decrypt the files
     let total_path_count = in_out_paths.len() as u64;
-    let progress_bar = ProgressBar::new(total_path_count);
+    let progress_bar = ProgressBar::progress(total_path_count);
 
     let decrypt_result: Vec<Result<(), AssetbundleError>> = stream::iter(&in_out_paths)
         .map(|paths| crypt_file(&paths.0, &paths.1, &args.operation).with_progress(&progress_bar))

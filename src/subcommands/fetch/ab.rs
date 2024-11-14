@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -12,11 +13,11 @@ use crate::{
     crypto::assetbundle,
     error::CommandError,
     models::{
-        api::Assetbundle,
+        api::{Assetbundle, AssetbundleInfo},
         enums::{Platform, Server},
     },
     subcommands::fetch::get_assetbundle_info,
-    utils::progress::ProgressBar,
+    utils::{fs::write_file, progress::ProgressBar},
 };
 use clap::Args;
 use futures::{stream, StreamExt};
@@ -24,7 +25,7 @@ use humansize::{format_size, DECIMAL};
 use regex::Regex;
 use tokio::{
     fs::{create_dir_all, File},
-    io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, BufReader},
 };
 use tokio_retry::{strategy::FixedInterval, Retry};
 
@@ -54,9 +55,13 @@ pub struct AbArgs {
     #[arg(short, long, value_enum, default_value_t = Server::Japan)]
     pub server: Server,
 
-    /// Path to an assetbundle info file that was output by ``fetch ab-info``
+    /// Path to an assetbundle info file. If not provided, the latest one will be fetched
     #[arg(short, long)]
     pub info: Option<String>,
+
+    /// If set, the assetbundle info file provided with --info will not be updated to the most recent asset version
+    #[arg(long, default_value_t = false)]
+    pub no_update: bool,
 
     /// The maximum number of files to download simultaneously
     #[arg(long, short, default_value_t = crate::utils::available_parallelism())]
@@ -74,10 +79,15 @@ pub struct AbArgs {
     #[arg(long, short, default_value_t = false)]
     pub encrypt: bool,
 
+    /// If present, will print debug messages.
+    #[arg(long, default_value_t = false)]
+    pub debug: bool,
+
     /// The directory to output the assetbundles to
     pub out_dir: String,
 }
 
+#[derive(Debug)]
 struct AssetbundlePathArgs {
     asset_version: String,
     asset_hash: String,
@@ -95,8 +105,6 @@ async fn download_bundle(
     download_progress: &indicatif::ProgressBar,
     decrypt: bool,
 ) -> Result<(), CommandError> {
-    // check hash of existing file
-
     // download
     let mut ab_data = client
         .get_assetbundle(
@@ -113,20 +121,42 @@ async fn download_bundle(
     }
 
     // write file
-    if let Some(parent) = out_path.parent() {
-        create_dir_all(parent).await?;
-    }
-    let mut out_file = File::options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(out_path)
-        .await?;
-    out_file.write_all(&ab_data).await?;
+    write_file(out_path, &ab_data).await?;
 
     // increment progress
     download_progress.inc(bundle.file_size);
     Ok(())
+}
+
+/// Reads and deserializes an assetbundle info from a .json file.
+async fn read_assetbundle_info(path: &str) -> Result<AssetbundleInfo, CommandError> {
+    // read file
+    let file = File::open(path).await?;
+    let mut reader = BufReader::new(file);
+    let mut file_buf = Vec::new();
+    reader.read_to_end(&mut file_buf).await?;
+
+    // deserialize
+    Ok(serde_json::from_slice(&file_buf)?)
+}
+
+/// Compares two HashMaps of [crate::models::api::Assetbundle].
+///
+/// Returns a new HashMap of [crate::models::api::Assetbundle] where
+/// a bundle in main_bundles exists in compare_bundles,
+/// but has a different hash value.
+fn get_assetbundles_differences(
+    main_bundles: HashMap<String, Assetbundle>,
+    compare_bundles: &HashMap<String, Assetbundle>,
+) -> HashMap<String, Assetbundle> {
+    main_bundles
+        .into_iter()
+        .filter(|(bundle_name, bundle)| {
+            compare_bundles
+                .get(bundle_name)
+                .map_or(true, |compare_bundle| compare_bundle.hash != bundle.hash)
+        })
+        .collect()
 }
 
 pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
@@ -142,21 +172,47 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
     let ab_info_spinner = ProgressBar::spinner();
 
     // get assetbundle info
-    let assetbundle_info = if let Some(path) = args.info {
-        // read file
-        let file = File::open(path).await?;
-        let mut reader = BufReader::new(file);
-        let mut file_buf = Vec::new();
-        reader.read_to_end(&mut file_buf).await?;
+    let assetbundle_info = match args.info {
+        None => get_assetbundle_info(&mut client, args.asset_version, args.host_hash).await?,
+        Some(string_path) => {
+            let assetbundle_info_path = Path::new(&string_path);
+            let file_exists = assetbundle_info_path.try_exists().unwrap_or(false);
 
-        // deserialize
-        serde_json::from_slice(&file_buf)?
-    } else {
-        get_assetbundle_info(&mut client, args.asset_version, args.host_hash).await?
+            if file_exists {
+                // read file
+                let main_info = read_assetbundle_info(&string_path).await?;
+
+                // update the assetbundle info if it should be updated
+                if args.no_update {
+                    main_info
+                } else {
+                    let latest_info =
+                        get_assetbundle_info(&mut client, args.asset_version, args.host_hash)
+                            .await?;
+
+                    AssetbundleInfo {
+                        bundles: get_assetbundles_differences(
+                            latest_info.bundles,
+                            &main_info.bundles,
+                        ),
+                        ..latest_info
+                    }
+                }
+            } else {
+                let latest_info =
+                    get_assetbundle_info(&mut client, args.asset_version, args.host_hash).await?;
+
+                // write to assetbundle_info_file_path
+                let serialized = serde_json::to_vec(&latest_info)?;
+                write_file(assetbundle_info_path, &serialized).await?;
+
+                latest_info
+            }
+        }
     };
 
     // stop assetbundle info spinner
-    ab_info_spinner.finish();
+    ab_info_spinner.finish_and_clear();
 
     // extract data from assetbundle_info
     let ab_path_args = AssetbundlePathArgs {
@@ -178,10 +234,10 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
         .as_ref()
         .and_then(|filter| Regex::new(filter).ok());
 
-    for (_, bundle) in assetbundle_info.bundles {
+    for (bundle_name, bundle) in assetbundle_info.bundles {
         if bundle_name_re
             .as_ref()
-            .map_or(true, |re| re.find(&bundle.bundle_name).is_some())
+            .map_or(true, |re| re.find(&bundle_name).is_some())
         {
             let out_path = out_dir.join(client.url_provider.assetbundle_path(
                 &ab_path_args.asset_version,
@@ -227,6 +283,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
     let download_start = Instant::now();
     let retry_strat = FixedInterval::from_millis(200).take(args.retry);
     let do_decrypt = !args.encrypt;
+    let do_debug = args.debug;
 
     let download_results: Vec<Result<(), CommandError>> = stream::iter(&to_download_bundles)
         .map(|(bundle, out_path)| async {
@@ -245,9 +302,20 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), CommandError> {
         .buffer_unordered(args.concurrent)
         .collect()
         .await;
+
+    // count successes & print errors if debug is enabled
     let success_count = download_results
         .iter()
-        .filter(|&result| result.is_ok())
+        .filter(|&result| {
+            if let Err(err) = result {
+                if do_debug {
+                    println!("assetbundle download error: {:?}", err);
+                }
+                false
+            } else {
+                true
+            }
+        })
         .count();
 
     // stop progress bar & print the sucess message

@@ -36,6 +36,14 @@ pub mod command {
     pub const SUITE_SAVING: &str = "Saving encrypted suitemaster files...";
     pub const SUITE_ENCRYPTED_FILE_NAME: &str = "00_suitemasterfile";
 
+    // extract hash
+    pub const EXTRACTING: &str = "Extracting version and hash from file...";
+    pub const EXTRACT_FAIL: &str = "No version/hash found in the provided file.";
+    pub const EXTRACT_SUCCESS: &str = "Successfully extracted info from the apk.";
+    pub const EXTRACT_VERSION: &str = "[App Version]:";
+    pub const EXTRACT_HASH: &str = "[App Hash]:";
+    pub const EXTRACT_MISSING: &str = "Not Found";
+
     pub mod error {
         pub const NO_RECENT_VERSION: &str = "most recent game version not found";
         pub const SUITE_DESERIALIZE_ERROR: &str = "error when deserializing suitemasterfile: ";

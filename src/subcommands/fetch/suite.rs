@@ -54,7 +54,7 @@ pub async fn download_suitemasterfile<T: UrlProvider>(
     api_file_path: &str,
     out_path: &Path,
 ) -> Result<(), CommandError> {
-    let value = client.get_suitemasterfile(&api_file_path).await?;
+    let value = client.get_suitemasterfile(api_file_path).await?;
 
     let obj = match value.as_object() {
         Some(obj) => Ok(obj),
@@ -117,7 +117,7 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::DOWNLOADING,
     );
-    let download_progress = ProgressBar::new(split_count as u64);
+    let download_progress = ProgressBar::progress(split_count as u64);
     download_progress.enable_steady_tick(Duration::from_millis(100));
 
     // download suite master split files
@@ -128,7 +128,7 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
     let download_results: Vec<Result<(), CommandError>> = stream::iter(&suitemaster_split_paths)
         .map(|api_path| async {
             Retry::spawn(retry_strat.clone(), || {
-                download_suitemasterfile(&client, api_path, &out_path)
+                download_suitemasterfile(&client, api_path, out_path)
                     .with_progress(&download_progress)
             })
             .await

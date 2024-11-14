@@ -1,15 +1,21 @@
-use std::{collections::VecDeque, path::PathBuf};
-use tokio::fs;
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
+use tokio::{
+    fs::{self, create_dir_all, File},
+    io::AsyncWriteExt,
+};
 
 /// Provided a path, will return all files related to that path.
 /// 1. If the path corresponds to an individual file, only that file's path will be returned.
 /// 2. If it is a directory, all files within that directory will be returned (recursive if given).
-pub async fn scan_path(path: &PathBuf, recursive: bool) -> Result<Vec<PathBuf>, tokio::io::Error> {
+pub async fn scan_path(path: &Path, recursive: bool) -> Result<Vec<PathBuf>, tokio::io::Error> {
     let mut paths = Vec::new();
 
     if path.is_dir() {
         let mut dirs_to_scan = VecDeque::new();
-        dirs_to_scan.push_back(path.clone());
+        dirs_to_scan.push_back(path.to_path_buf());
 
         while let Some(scan_dir) = dirs_to_scan.pop_front() {
             if let Ok(mut read_dir) = fs::read_dir(scan_dir).await {
@@ -27,10 +33,29 @@ pub async fn scan_path(path: &PathBuf, recursive: bool) -> Result<Vec<PathBuf>, 
             }
         }
     } else {
-        paths.push(path.clone())
+        paths.push(path.to_path_buf())
     }
 
     Ok(paths)
+}
+
+/// Writes bytes to the given out_path.
+///
+/// Any missing directories will be created.
+/// If a file already exists at [`out_path`], it will be truncated with the new data.
+pub async fn write_file(out_path: &Path, data: &[u8]) -> Result<(), tokio::io::Error> {
+    // write file
+    if let Some(parent) = out_path.parent() {
+        create_dir_all(parent).await?;
+    }
+    let mut out_file = File::options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(out_path)
+        .await?;
+    out_file.write_all(data).await?;
+    Ok(())
 }
 
 #[cfg(test)]

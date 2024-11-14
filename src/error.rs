@@ -40,6 +40,21 @@ impl From<Vec<ApiError>> for ApiError {
 }
 
 #[derive(Error, Debug)]
+pub enum ApkExtractError {
+    #[error("zip archive error: {0}")]
+    Zip(#[from] zip::result::ZipError),
+
+    #[error("std io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("regex error: {0}")]
+    Regex(#[from] regex::Error),
+
+    #[error("join error: {0}")]
+    Join(#[from] tokio::task::JoinError),
+}
+
+#[derive(Error, Debug)]
 pub enum CommandError {
     #[error("api error: {0}")]
     Api(#[from] ApiError),
@@ -58,6 +73,9 @@ pub enum CommandError {
 
     #[error("not enough space: {0}")]
     NotEnoughSpace(String),
+
+    #[error("apk extract error: {0}")]
+    ApkExtract(#[from] ApkExtractError),
 
     #[error("not found: {0}")]
     NotFound(String),

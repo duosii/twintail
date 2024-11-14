@@ -25,7 +25,7 @@ pub struct ProgressBar;
 
 impl ProgressBar {
     /// Create a normal progress bar.
-    pub fn new(size: u64) -> indicatif::ProgressBar {
+    pub fn progress(size: u64) -> indicatif::ProgressBar {
         indicatif::ProgressBar::new(size).with_style(
             ProgressStyle::with_template("[{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}")
                 .unwrap_or(ProgressStyle::default_bar())
