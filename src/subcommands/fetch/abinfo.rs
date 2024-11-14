@@ -1,10 +1,6 @@
 use std::path::Path;
 
 use clap::Args;
-use tokio::{
-    fs::{create_dir_all, File},
-    io::AsyncWriteExt,
-};
 
 use crate::{
     api::sekai_client::SekaiClient,
@@ -12,7 +8,7 @@ use crate::{
     error::CommandError,
     models::enums::{Platform, Server},
     subcommands::fetch::get_assetbundle_info,
-    utils::progress::ProgressBar,
+    utils::{fs::write_file, progress::ProgressBar},
 };
 
 #[derive(Debug, Args)]
@@ -73,18 +69,7 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), CommandError> {
     let out_path = out_dir_path.join(Path::new(&format!("{}.json", assetbundle_info.version)));
 
     // create parent folders if they do not exist
-    if let Some(parent) = out_path.parent() {
-        create_dir_all(parent).await?;
-    }
-
-    // save file
-    let mut out_file = File::options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&out_path)
-        .await?;
-    out_file.write_all(&assetbundle_info_serialized).await?;
+    write_file(&out_path, &assetbundle_info_serialized).await?;
 
     println!(
         "{}{}{}{}",

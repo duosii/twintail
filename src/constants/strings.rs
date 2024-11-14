@@ -34,6 +34,7 @@ pub mod command {
     // encrypt suite
     pub const SUITE_PROCESSING: &str = "Processing suitemaster files...";
     pub const SUITE_SAVING: &str = "Saving encrypted suitemaster files...";
+    pub const SUITE_DECRYPTING: &str = "Decrypting suitemaster files...";
     pub const SUITE_ENCRYPTED_FILE_NAME: &str = "00_suitemasterfile";
 
     // extract hash

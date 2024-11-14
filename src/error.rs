@@ -71,6 +71,9 @@ pub enum CommandError {
     #[error("rmp_serde encode error: {0}")]
     RmpSerdeEncode(#[from] rmp_serde::encode::Error),
 
+    #[error("rmp_serde encode error: {0}")]
+    RmpSerdeDecode(#[from] rmp_serde::decode::Error),
+
     #[error("not enough space: {0}")]
     NotEnoughSpace(String),
 

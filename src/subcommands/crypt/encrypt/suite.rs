@@ -1,19 +1,18 @@
 use crate::constants::{color, strings};
 use crate::crypto::aes_msgpack;
 use crate::models::enums::Server;
+use crate::utils::fs::write_file;
 use crate::utils::progress::{ProgressBar, WithProgress};
 use crate::{error::CommandError, utils::fs::scan_path};
 use clap::Args;
 use futures::{stream, StreamExt};
 use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
-use tokio::fs::create_dir_all;
-use tokio::io::AsyncWriteExt;
 use tokio::time::Instant;
 
 #[derive(Debug, Args)]
 pub struct EncryptSuiteArgs {
-    /// If the input is a directory, whether to recursively decrypt valid files in that directory
+    /// If the input is a directory, whether to recursively encrypt valid files in that directory
     #[arg(long, short, default_value_t = false)]
     pub recursive: bool,
 
@@ -105,16 +104,7 @@ pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), CommandError> {
 
     // write to out directory
     let out_path = Path::new(&args.out_path).join(strings::command::SUITE_ENCRYPTED_FILE_NAME);
-    if let Some(parent) = out_path.parent() {
-        create_dir_all(parent).await?;
-    }
-    let mut out_file = tokio::fs::File::options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(out_path)
-        .await?;
-    out_file.write_all(&serialized).await?;
+    write_file(&out_path, &serialized).await?;
 
     // print the result
     println!(

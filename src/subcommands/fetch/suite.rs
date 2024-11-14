@@ -5,15 +5,14 @@ use crate::{
     constants::{color, strings},
     error::CommandError,
     models::enums::{Platform, Server},
-    utils::progress::{ProgressBar, WithProgress},
+    utils::{
+        fs::{extract_suitemaster_file, write_file},
+        progress::{ProgressBar, WithProgress},
+    },
 };
 use clap::Args;
 use futures::{stream, StreamExt};
-use tokio::{
-    fs::{create_dir_all, File},
-    io::AsyncWriteExt,
-    time::Instant,
-};
+use tokio::time::Instant;
 use tokio_retry::{strategy::FixedInterval, Retry};
 
 #[derive(Debug, Args)]
@@ -42,6 +41,10 @@ pub struct SuiteArgs {
     #[arg(long, short, default_value_t = 3)]
     pub retry: usize,
 
+    /// If set, the downloaded suitemaster files will not be decrypted.
+    #[arg(long, short, default_value_t = false)]
+    pub encrypt: bool,
+
     /// The directory to output the suitemaster files to
     pub out_dir: String,
 }
@@ -49,39 +52,29 @@ pub struct SuiteArgs {
 /// Downloads a suitemasterfile at the provided path using the given SekaiClient.
 ///
 /// This will unpack each suitemasterfile and save the contents to the provided out_path.
-pub async fn download_suitemasterfile<T: UrlProvider>(
+///
+/// If encrypt is true, the suitemaster file will not be unpacked.
+async fn download_suitemasterfile<T: UrlProvider>(
     client: &SekaiClient<T>,
     api_file_path: &str,
     out_path: &Path,
+    encrypt: bool,
 ) -> Result<(), CommandError> {
-    let value = client.get_suitemasterfile(api_file_path).await?;
-
-    let obj = match value.as_object() {
-        Some(obj) => Ok(obj),
-        None => Err(CommandError::NotFound(
-            "malformed suitemaster file: could not read value as an object".to_string(),
-        )),
-    }?;
-
-    // get inner fields
-    for (key, suite_values) in obj {
-        // convert suite_values to a vec
-        let values_as_vec = serde_json::to_vec(suite_values)?;
-
-        let out_path = out_path.join(format!("{}.json", key));
-        if let Some(parent) = out_path.parent() {
-            create_dir_all(parent).await?;
+    if encrypt {
+        let file_bytes = client.get_suitemasterfile(api_file_path).await?;
+        if let Some(file_name) = Path::new(api_file_path).file_name() {
+            write_file(&out_path.join(file_name), &file_bytes).await?;
+            Ok(())
+        } else {
+            Err(CommandError::NotFound(format!(
+                "file name not found for api file path: {}",
+                api_file_path
+            )))
         }
-        let mut out_file = File::options()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(out_path)
-            .await?;
-        out_file.write_all(&values_as_vec).await?;
+    } else {
+        let value = client.get_suitemasterfile_as_value(api_file_path).await?;
+        extract_suitemaster_file(value, out_path).await
     }
-
-    Ok(())
 }
 
 pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
@@ -124,11 +117,12 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), CommandError> {
     let out_path = Path::new(&args.out_dir);
     let retry_strat = FixedInterval::from_millis(200).take(args.retry);
     let download_start = Instant::now();
+    let do_encrypt = args.encrypt;
 
     let download_results: Vec<Result<(), CommandError>> = stream::iter(&suitemaster_split_paths)
         .map(|api_path| async {
             Retry::spawn(retry_strat.clone(), || {
-                download_suitemasterfile(&client, api_path, out_path)
+                download_suitemasterfile(&client, api_path, out_path, do_encrypt)
                     .with_progress(&download_progress)
             })
             .await

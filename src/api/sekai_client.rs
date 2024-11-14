@@ -342,8 +342,31 @@ impl<T: UrlProvider> SekaiClient<T> {
     ///
     /// These files contain information about what character cards and gacha banners exist among many other things.
     ///
-    /// This function will, if successful, return a ``serde_json::Value`` representing the suitemasterfile.
-    pub async fn get_suitemasterfile(&self, file_path: &str) -> Result<Value, ApiError> {
+    /// This function will, if successful, return bytes representing an encrypted suitemasterfile.
+    pub async fn get_suitemasterfile(&self, file_path: &str) -> Result<Vec<u8>, ApiError> {
+        let request = self
+            .client
+            .get(self.url_provider.suitemasterfile(file_path))
+            .headers(self.headers.get_map());
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                let bytes = response.bytes().await?;
+                Ok(bytes.to_vec())
+            }
+            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
+        }
+    }
+
+    /// Performs a request to download a suitemasterfile.
+    ///
+    /// The suitemasterfile endpoint is used for download split suite master files.
+    ///
+    /// These files contain information about what character cards and gacha banners exist among many other things.
+    ///
+    /// This function will, if successful, return a ``serde_json::Value`` representing a decrypted suitemasterfile.
+    pub async fn get_suitemasterfile_as_value(&self, file_path: &str) -> Result<Value, ApiError> {
         let request = self
             .client
             .get(self.url_provider.suitemasterfile(file_path))

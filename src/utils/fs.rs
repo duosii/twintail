@@ -1,3 +1,4 @@
+use serde_json::Value;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -6,6 +7,8 @@ use tokio::{
     fs::{self, create_dir_all, File},
     io::AsyncWriteExt,
 };
+
+use crate::error::CommandError;
 
 /// Provided a path, will return all files related to that path.
 /// 1. If the path corresponds to an individual file, only that file's path will be returned.
@@ -55,6 +58,28 @@ pub async fn write_file(out_path: &Path, data: &[u8]) -> Result<(), tokio::io::E
         .open(out_path)
         .await?;
     out_file.write_all(data).await?;
+    Ok(())
+}
+
+/// Extracts the inner fields of a suitemaster file and writes them
+/// to the provided out_path as .json files.
+pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommandError> {
+    let obj = match file.as_object() {
+        Some(obj) => Ok(obj),
+        None => Err(CommandError::NotFound(
+            "malformed suitemaster file: could not read value as an object".to_string(),
+        )),
+    }?;
+
+    // get inner fields
+    for (key, suite_values) in obj {
+        // convert suite_values to a vec
+        let values_as_vec = serde_json::to_vec(suite_values)?;
+
+        let out_path = out_path.join(format!("{}.json", key));
+        write_file(&out_path, &values_as_vec).await?;
+    }
+
     Ok(())
 }
 

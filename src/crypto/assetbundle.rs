@@ -1,11 +1,11 @@
 use std::{io::SeekFrom, path::PathBuf};
 
 use tokio::{
-    fs::{create_dir_all, File},
+    fs::File,
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader},
 };
 
-use crate::error::AssetbundleError;
+use crate::{error::AssetbundleError, utils::fs::write_file};
 
 const UNITY_ASSETBUNDLE_MAGIC: &[u8] = b"\x55\x6e\x69\x74\x79\x46";
 const SEKAI_ASSETBUNDLE_MAGIC: &[u8] = b"\x10\x00\x00\x00";
@@ -136,16 +136,7 @@ pub async fn crypt_file(
     };
 
     // create parent folders if they do not exist
-    if let Some(parent) = out_path.parent() {
-        create_dir_all(parent).await?;
-    }
-    let mut out_file = File::options()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(out_path)
-        .await?;
-    out_file.write_all(&crypted).await?;
+    write_file(out_path, &crypted).await?;
 
     Ok(())
 }
