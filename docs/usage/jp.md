@@ -70,7 +70,7 @@ twintail fetch ab-info --version <app_version> --hash <app_hash>
 
 より詳細な使用方法については、このコマンドの[コマンドリファレンス](../commands/jp.md#fetch-ab-info)を参照してください。
 
-### アセットの暗号化と復号化
+## アセットの暗号化と復号化
 デフォルトでは、twintailがダウンロードするすべてのファイルは復号化されています。
 
 これらのアセットを再度暗号化したい場合は、twintailの暗号化および復号化コマンドを使用できます。

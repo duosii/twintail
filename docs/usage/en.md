@@ -70,7 +70,7 @@ twintail fetch ab-info --version <app_version> --hash <app_hash>
 
 For more in-depth usage details, you can go to the [commands reference](../commands/en.md#fetch-ab-info) for this command.
 
-### Encrypting and Decrypting Assets
+## Encrypting and Decrypting Assets
 By default, all files that twintail downloads will be decrypted.
 
 If you wanted to encrypt these assets again, you can use twintail's encryption and decryption commands.
