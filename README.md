@@ -7,7 +7,8 @@ twintail currently supports the game's global and Japan servers.
 You can download the most recent version from the [releases page](https://github.com/Duosion/twintail/releases/latest) or [build it](#building).
 
 ## Usage
-Follow the [usage guide](/docs/usage/en.md)
+- Follow the [usage guide](/docs/usage/en.md) for a general explanation of how to use twintail.
+- Follow the [command reference](/docs/commands/en.md) for a list of commands with examples.
 
 ## Building
 ### Dependencies
