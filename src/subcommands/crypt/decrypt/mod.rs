@@ -5,8 +5,6 @@ use ab::DecryptAbArgs;
 use clap::{Args, Subcommand};
 use suite::DecryptSuiteArgs;
 
-use crate::error::CommandError;
-
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Decrypt assetbundles.
@@ -22,9 +20,9 @@ pub struct DecryptArgs {
 }
 
 /// Command handler for the decrypt subcommand.
-pub async fn decrypt(args: DecryptArgs) -> Result<(), CommandError> {
+pub async fn decrypt(args: DecryptArgs) -> Result<(), twintail::Error> {
     match args.command {
-        Commands::Ab(args) => ab::decrypt_ab(&args).await,
+        Commands::Ab(args) => ab::decrypt_ab(args).await,
         Commands::Suite(args) => suite::decrypt_suite(args).await,
     }
 }

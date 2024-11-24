@@ -1,7 +1,14 @@
 [package]
 name = "twintail"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
 
 [dependencies]
 aes = "0.8.4"

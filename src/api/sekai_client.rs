@@ -1,11 +1,6 @@
-use super::{
-    headers::Headers,
-    url::{
-        global_provider::GlobalUrlProvider, japan_provider::JapanUrlProvider,
-        server_provider::ServerUrlProvider, UrlProvider,
-    },
-};
+use super::{headers::Headers, url::UrlProvider};
 use crate::{
+    config::AesConfig,
     constants::{header, strings},
     crypto::aes_msgpack,
     error::ApiError,
@@ -14,7 +9,7 @@ use crate::{
             AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse,
             UserRequest, UserSignup,
         },
-        enums::{Platform, Server},
+        enums::Platform,
     },
 };
 use reqwest::{Client, StatusCode};
@@ -41,26 +36,9 @@ impl SekaiApp {
 pub struct SekaiClient<T: UrlProvider> {
     headers: Headers,
     client: Client,
+    aes_config: AesConfig,
     pub url_provider: T,
-    server: Server,
     pub app: SekaiApp,
-}
-
-impl SekaiClient<ServerUrlProvider> {
-    /// Creates a new SekaiClient that uses a ServerUrlProvider based on the passed ``server`` value.
-    pub async fn new(
-        version: String,
-        hash: String,
-        platform: Platform,
-        server: Server,
-    ) -> Result<Self, ApiError> {
-        let provider = match server {
-            Server::Japan => ServerUrlProvider::Japan(JapanUrlProvider::default()),
-            Server::Global => ServerUrlProvider::Global(GlobalUrlProvider::default()),
-        };
-
-        Self::new_with_url_provider(version, hash, platform, server, provider).await
-    }
 }
 
 impl<T: UrlProvider> SekaiClient<T> {
@@ -69,7 +47,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         version: String,
         hash: String,
         platform: Platform,
-        server: Server,
+        aes_config: AesConfig,
         url_provider: T,
     ) -> Result<Self, ApiError> {
         let headers = Headers::builder()?
@@ -81,8 +59,8 @@ impl<T: UrlProvider> SekaiClient<T> {
         let mut client = Self {
             headers,
             client: Client::new(),
+            aes_config,
             url_provider,
-            server,
             app: SekaiApp::new(version, hash, platform),
         };
 
@@ -146,7 +124,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         match request.send().await?.error_for_status() {
             Ok(response) => {
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::FORBIDDEN) => Err(ApiError::InvalidRequest(
@@ -171,7 +149,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 device_model: header::value::DEVICE_MODEL.into(),
                 operating_system: header::value::OPERATING_SYSTEM.into(),
             },
-            &self.server,
+            &self.aes_config,
         )?;
 
         let request = self
@@ -183,7 +161,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         match request.send().await?.error_for_status() {
             Ok(response) => {
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::UPGRADE_REQUIRED) => Err(ApiError::InvalidRequest(
@@ -214,7 +192,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 credential,
                 device_id: None,
             },
-            &self.server,
+            &self.aes_config,
         )?;
 
         let request = self
@@ -228,7 +206,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 // parse body
                 let bytes = response.bytes().await?;
                 let auth_response: UserAuthResponse =
-                    aes_msgpack::from_slice(&bytes, &self.server)?;
+                    aes_msgpack::from_slice(&bytes, &self.aes_config)?;
 
                 // insert session token
                 self.headers
@@ -266,7 +244,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
             }
             Err(err) => match err.status() {
                 Some(StatusCode::FORBIDDEN) => Err(ApiError::InvalidRequest(
@@ -330,7 +308,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
             }
             Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
         }
@@ -376,7 +354,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.server)?)
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
             }
             Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
         }
@@ -386,7 +364,7 @@ impl<T: UrlProvider> SekaiClient<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::url::test_provider::TestUrlProvider, models::api::AppVersion};
+    use crate::{api::url::test_provider::TestUrlProvider, enums::Server, models::api::AppVersion};
 
     const SIGNATURE_COOKIE_VALUE: &str = "signature_cookie";
 
@@ -395,7 +373,7 @@ mod tests {
             "3.9".to_string(),
             "393939".to_string(),
             Platform::Android,
-            Server::Japan,
+            Server::Japan.get_aes_config(),
             TestUrlProvider::new(server_url),
         )
         .await
@@ -434,7 +412,7 @@ mod tests {
                 app_version_status: "available".into(),
             }],
         };
-        let mock_body = aes_msgpack::into_vec(&mock_system_info, &client.server).unwrap();
+        let mock_body = aes_msgpack::into_vec(&mock_system_info, &client.aes_config).unwrap();
 
         let mock = server
             .mock("GET", "/api/system")

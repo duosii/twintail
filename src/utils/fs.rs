@@ -8,7 +8,7 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-use crate::error::CommandError;
+use crate::error::CommonError;
 
 /// Provided a path, will return all files related to that path.
 /// 1. If the path corresponds to an individual file, only that file's path will be returned.
@@ -63,10 +63,10 @@ pub async fn write_file(out_path: &Path, data: &[u8]) -> Result<(), tokio::io::E
 
 /// Extracts the inner fields of a suitemaster file and writes them
 /// to the provided out_path as .json files.
-pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommandError> {
+pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
-        None => Err(CommandError::NotFound(
+        None => Err(CommonError::NotFound(
             "malformed suitemaster file: could not read value as an object".to_string(),
         )),
     }?;
@@ -83,15 +83,26 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<()
     Ok(())
 }
 
+/// Deserializes a .json file into a serde_json Value.
+///
+/// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
+pub fn deserialize_file(path: &PathBuf) -> Result<Value, CommonError> {
+    let in_file = std::fs::File::open(path)?;
+
+    // deserialize contents
+    let reader = std::io::BufReader::new(in_file);
+    let deserialized: Value = serde_json::from_reader(reader)?;
+
+    Ok(deserialized)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::error::AssetbundleError;
-
     use super::*;
     use tempfile::{tempdir, tempdir_in};
 
     #[tokio::test]
-    async fn test_scan_path() -> Result<(), AssetbundleError> {
+    async fn test_scan_path() -> Result<(), CommonError> {
         // create temporary directory to scan
         let temp_dir_1 = tempdir()?;
 

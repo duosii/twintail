@@ -1,14 +1,12 @@
-mod api;
+#[allow(dead_code)]
 mod constants;
-mod crypto;
+#[allow(dead_code)]
 mod error;
-mod models;
 mod subcommands;
-mod utils;
 
-use clap::{Parser, Subcommand};
+use anstyle::{AnsiColor, Color};
+use clap::{builder::Styles, Parser, Subcommand};
 use constants::color;
-use error::Error;
 use subcommands::{
     app_info,
     crypt::{decrypt, encrypt},
@@ -28,14 +26,14 @@ enum Commands {
 }
 
 #[derive(Debug, Parser)]
-#[command(version, about, long_about = None, styles=utils::styles::get_clap_styles())]
+#[command(version, about, long_about = None, styles=get_clap_styles())]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), twintail::Error> {
     let cli = Cli::parse();
 
     let result = match cli.command {
@@ -49,11 +47,38 @@ async fn main() -> Result<(), Error> {
     if let Err(err) = result {
         println!(
             "{}{}{}",
-            color::clap::ERROR.render_fg(),
+            color::ERROR.render_fg(),
             err,
             color::TEXT.render_fg()
         )
     }
 
     Ok(())
+}
+
+/// Get styles for ``clap``.\
+const USAGE: Color = Color::Ansi(AnsiColor::BrightBlue);
+const HEADER: Color = Color::Ansi(AnsiColor::BrightBlue);
+const LITERAL: Color = Color::Ansi(AnsiColor::BrightCyan);
+const INVALID: Color = Color::Ansi(AnsiColor::Red);
+const VALID: Color = Color::Ansi(AnsiColor::BrightCyan);
+const PLACEHOLDER: Color = Color::Ansi(AnsiColor::White);
+pub fn get_clap_styles() -> Styles {
+    Styles::styled()
+        .usage(anstyle::Style::new().bold().fg_color(Some(USAGE)))
+        .header(anstyle::Style::new().bold().fg_color(Some(HEADER)))
+        .literal(anstyle::Style::new().fg_color(Some(LITERAL)))
+        .invalid(anstyle::Style::new().bold().fg_color(Some(INVALID)))
+        .error(
+            anstyle::Style::new()
+                .bold()
+                .fg_color(Some(constants::color::ERROR)),
+        )
+        .valid(
+            anstyle::Style::new()
+                .bold()
+                .underline()
+                .fg_color(Some(VALID)),
+        )
+        .placeholder(anstyle::Style::new().fg_color(Some(PLACEHOLDER)))
 }

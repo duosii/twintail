@@ -1,24 +1,6 @@
-use std::{future::Future, time::Duration};
+use std::time::Duration;
 
 use indicatif::ProgressStyle;
-
-pub trait WithProgress {
-    type Output;
-    async fn with_progress(self, progress_bar: &indicatif::ProgressBar) -> Self::Output;
-}
-
-impl<F, T, E> WithProgress for F
-where
-    F: Future<Output = Result<T, E>>,
-{
-    type Output = Result<T, E>;
-
-    async fn with_progress(self, progress_bar: &indicatif::ProgressBar) -> Self::Output {
-        let result = self.await;
-        progress_bar.inc(1);
-        result
-    }
-}
 
 /// Convenience struct for generating [`indicatif::ProgressBar`] instances with twintail styling.
 pub struct ProgressBar;

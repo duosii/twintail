@@ -1,6 +1,7 @@
 use super::{SekaiHosts, UrlProvider};
 use crate::{constants::url::sekai, models::enums::Platform};
 
+#[derive(Clone)]
 pub struct GlobalUrlProvider {
     hosts: SekaiHosts,
 }

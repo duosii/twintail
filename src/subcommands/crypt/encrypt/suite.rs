@@ -1,14 +1,9 @@
-use crate::constants::{color, strings};
-use crate::crypto::aes_msgpack;
-use crate::models::enums::Server;
-use crate::utils::fs::write_file;
-use crate::utils::progress::{ProgressBar, WithProgress};
-use crate::{error::CommandError, utils::fs::scan_path};
 use clap::Args;
-use futures::{stream, StreamExt};
-use serde_json::{Map, Value};
-use std::path::{Path, PathBuf};
-use tokio::time::Instant;
+use twintail::{
+    config::{crypt_config::CryptConfig, OptionalBuilder},
+    enums::Server,
+    Encrypter,
+};
 
 #[derive(Debug, Args)]
 pub struct EncryptSuiteArgs {
@@ -17,12 +12,20 @@ pub struct EncryptSuiteArgs {
     pub recursive: bool,
 
     /// The maximum number of files to encrypt simultaneously
-    #[arg(long, short, default_value_t = crate::utils::available_parallelism())]
-    pub concurrent: usize,
+    #[arg(long, short)]
+    pub concurrent: Option<usize>,
 
     /// The server to encrypt the suitemasterfiles for
     #[arg(short, long, value_enum, default_value_t = Server::Japan)]
     pub server: Server,
+
+    /// The total number of files to split the suitemaster files into
+    #[arg(short, long, default_value_t = 6)]
+    pub split: usize,
+
+    /// Whether to output status messages
+    #[arg(short, long, default_value_t = false)]
+    pub quiet: bool,
 
     /// Path to the file or directory to encrypt
     pub in_path: String,
@@ -31,90 +34,21 @@ pub struct EncryptSuiteArgs {
     pub out_path: String,
 }
 
-/// Deserializes a json file into a serde_json Value.
-async fn deserialize_file(path: &PathBuf) -> Result<(String, Value), CommandError> {
-    let in_file = std::fs::File::open(path)?;
+pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), twintail::Error> {
+    let config = CryptConfig::builder()
+        .recursive(args.recursive)
+        .server(args.server)
+        .quiet(args.quiet)
+        .map(args.concurrent, |config, concurrency| {
+            config.concurrency(concurrency)
+        })
+        .build();
 
-    // get file name
-    let file_stem = path
-        .file_stem()
-        .and_then(|os_str| os_str.to_str())
-        .ok_or_else(|| CommandError::NotFound("file name not found for file".to_string()))?;
+    let encrypter = Encrypter::new(config);
 
-    // deserialize contents
-    let reader = std::io::BufReader::new(in_file);
-    let deserialized: Value = serde_json::from_reader(reader)?;
-
-    Ok((file_stem.to_string(), deserialized))
-}
-
-pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), CommandError> {
-    let in_path = PathBuf::from(args.in_path);
-
-    // get paths that we need to encrypt
-    let encrypt_start = Instant::now();
-    let to_encrypt_paths = scan_path(&in_path, args.recursive).await?;
-
-    println!(
-        "{}[1/2] {}{}",
-        color::TEXT_VARIANT.render_fg(),
-        color::TEXT.render_fg(),
-        strings::command::SUITE_PROCESSING,
-    );
-    let deserialize_progress = ProgressBar::progress(to_encrypt_paths.len() as u64);
-
-    // deserialize all paths to [`serde_json::Value`]s.
-    let deserialize_results: Vec<Result<(String, Value), CommandError>> =
-        stream::iter(&to_encrypt_paths)
-            .map(|path| deserialize_file(path).with_progress(&deserialize_progress))
-            .buffer_unordered(args.concurrent)
-            .collect()
-            .await;
-
-    deserialize_progress.finish();
-
-    // merge all values into a map
-    println!(
-        "{}[2/2] {}{}",
-        color::TEXT_VARIANT.render_fg(),
-        color::TEXT.render_fg(),
-        strings::command::SUITE_SAVING,
-    );
-
-    let mut values_map: Map<String, Value> = Map::new();
-    for result in deserialize_results {
-        match result {
-            Ok((key, value)) => {
-                values_map.insert(key, value);
-            }
-            Err(err) => {
-                println!(
-                    "{}{}{}{}",
-                    color::clap::ERROR.render_fg(),
-                    strings::command::error::SUITE_DESERIALIZE_ERROR,
-                    err,
-                    color::TEXT.render_fg()
-                );
-            }
-        }
-    }
-
-    // serialize as msgpack
-    let serialized = aes_msgpack::into_vec(&values_map, &args.server)?;
-
-    // write to out directory
-    let out_path = Path::new(&args.out_path).join(strings::command::SUITE_ENCRYPTED_FILE_NAME);
-    write_file(&out_path, &serialized).await?;
-
-    // print the result
-    println!(
-        "{}Successfully {} {} files in {:?}.{}",
-        color::SUCCESS.render_fg(),
-        strings::crypto::encrypt::PROCESSED,
-        values_map.len(),
-        Instant::now().duration_since(encrypt_start),
-        color::TEXT.render_fg(),
-    );
+    encrypter
+        .encrypt_suite_path(args.in_path, args.out_path, args.split)
+        .await?;
 
     Ok(())
 }

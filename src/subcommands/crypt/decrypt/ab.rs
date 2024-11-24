@@ -1,10 +1,8 @@
-use crate::{
-    constants::strings,
-    crypto::assetbundle::CryptOperation,
-    error::CommandError,
-    subcommands::crypt::{crypt_assetbundle, CryptArgs, CryptStrings},
-};
 use clap::Args;
+use twintail::{
+    config::{crypt_config::CryptConfig, OptionalBuilder},
+    Decrypter,
+};
 
 #[derive(Debug, Args)]
 pub struct DecryptAbArgs {
@@ -13,8 +11,12 @@ pub struct DecryptAbArgs {
     pub recursive: bool,
 
     /// The maximum number of files to decrypt simultaneously
-    #[arg(long, short, default_value_t = crate::utils::available_parallelism())]
-    pub concurrent: usize,
+    #[arg(long, short)]
+    pub concurrent: Option<usize>,
+
+    /// Whether to output status messages
+    #[arg(short, long, default_value_t = false)]
+    pub quiet: bool,
 
     /// Path to the file or directory to decrypt
     pub in_path: String,
@@ -24,17 +26,18 @@ pub struct DecryptAbArgs {
 }
 
 /// Decrypts a file/folder using the provided arguments.
-pub async fn decrypt_ab(args: &DecryptAbArgs) -> Result<(), CommandError> {
-    crypt_assetbundle(CryptArgs {
-        in_path: &args.in_path,
-        recursive: args.recursive,
-        concurrent: args.concurrent,
-        operation: CryptOperation::Decrypt,
-        strings: CryptStrings {
-            process: strings::crypto::decrypt::PROCESS,
-            processed: strings::crypto::decrypt::PROCESSED,
-        },
-        out_path: &args.out_path,
-    })
-    .await
+pub async fn decrypt_ab(args: DecryptAbArgs) -> Result<(), twintail::Error> {
+    let config = CryptConfig::builder()
+        .recursive(args.recursive)
+        .quiet(args.quiet)
+        .map(args.concurrent, |config, val| config.concurrency(val))
+        .build();
+
+    let decrypter = Decrypter::new(config);
+
+    decrypter
+        .decrypt_ab_path(args.in_path, args.out_path)
+        .await?;
+
+    Ok(())
 }

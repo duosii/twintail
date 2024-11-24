@@ -8,6 +8,7 @@ pub mod test_provider;
 use crate::{constants::url::sekai, models::enums::Platform};
 
 /// Stores the hosts that a SekaiClient should use when making requests.
+#[derive(Clone)]
 pub struct SekaiHosts {
     issue: String,
     game_version: String,
@@ -35,7 +36,7 @@ impl SekaiHosts {
 }
 
 /// Trait that provides urls for game endpoints.
-pub trait UrlProvider {
+pub trait UrlProvider: Clone {
     fn issue_signature(&self) -> Option<String>;
     fn game_version(&self, version: &str, hash: &str) -> String;
     fn user(&self) -> String;

@@ -3,14 +3,13 @@ use aes::cipher::{
     BlockDecryptMut, BlockEncryptMut, KeyIvInit,
 };
 
-use crate::models::enums::Server;
+use crate::config::AesConfig;
 
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 
 /// Decrypt bytes encrypted with Aes128 using a predefined key & iv.
-pub fn decrypt(block: &[u8], server: &Server) -> Result<Vec<u8>, UnpadError> {
-    let config = server.get_aes_config();
+pub fn decrypt(block: &[u8], config: &AesConfig) -> Result<Vec<u8>, UnpadError> {
     let cipher = Aes128CbcDec::new(config.key.into(), config.iv.into());
 
     cipher.decrypt_padded_vec_mut::<Pkcs7>(block)
@@ -26,8 +25,7 @@ pub fn decrypt(block: &[u8], server: &Server) -> Result<Vec<u8>, UnpadError> {
 // }
 
 /// Encrypt bytes using a predefined key & iv.
-pub fn encrypt(block: &[u8], server: &Server) -> Vec<u8> {
-    let config = server.get_aes_config();
+pub fn encrypt(block: &[u8], config: &AesConfig) -> Vec<u8> {
     let cipher = Aes128CbcEnc::new(config.key.into(), config.iv.into());
 
     cipher.encrypt_padded_vec_mut::<Pkcs7>(block)
@@ -35,6 +33,8 @@ pub fn encrypt(block: &[u8], server: &Server) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use crate::models::enums::Server;
+
     use super::*;
 
     #[test]
@@ -42,10 +42,11 @@ mod tests {
         let data = b"39393939393".to_vec();
 
         // encrypt the plaintext
-        let encrypted = encrypt(&data.clone(), &Server::Japan);
+        let encrypted = encrypt(&data.clone(), &Server::Japan.get_aes_config());
 
         // decrypt the ciphertext
-        let decrypted = decrypt(&encrypted, &Server::Japan).expect("Error when decrypting data.");
+        let decrypted = decrypt(&encrypted, &Server::Japan.get_aes_config())
+            .expect("Error when decrypting data.");
         assert_eq!(decrypted, data);
     }
 }

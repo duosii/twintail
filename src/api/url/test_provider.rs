@@ -1,6 +1,7 @@
 use super::UrlProvider;
 use crate::{constants::url::sekai, models::enums::Platform};
 
+#[derive(Clone)]
 pub struct TestUrlProvider {
     host: String,
 }

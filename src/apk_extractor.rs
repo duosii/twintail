@@ -1,4 +1,4 @@
-use crate::error::ApkExtractError;
+use crate::{error::ApkExtractError, Error};
 use regex::Regex;
 use std::{
     fs::File,
@@ -43,7 +43,7 @@ where
     }
 
     /// Extracts the app hash from the APK.
-    pub fn extract(&mut self) -> Result<AppInfo, ApkExtractError> {
+    pub fn extract(&mut self) -> Result<AppInfo, Error> {
         let mut zip = ZipArchive::new(&mut self.apk_buf)?;
 
         // get the indexes where inner apks exist
@@ -114,7 +114,7 @@ fn extract_file_app_info(
 fn extract_info_from_archive(
     archive: &mut ZipArchive<impl Read + Seek>,
     hash_re: &Regex,
-) -> Result<AppInfo, ApkExtractError> {
+) -> Result<AppInfo, Error> {
     let mut version = None;
     let mut hashes: Vec<String> = Vec::new();
 

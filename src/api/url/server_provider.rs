@@ -2,9 +2,17 @@ use crate::models::enums::Platform;
 
 use super::{global_provider::GlobalUrlProvider, japan_provider::JapanUrlProvider, UrlProvider};
 
+#[derive(Clone)]
 pub enum ServerUrlProvider {
     Japan(JapanUrlProvider),
     Global(GlobalUrlProvider),
+}
+
+impl Default for ServerUrlProvider {
+    /// Creates a default ServerUrlProvider using the JapanUrlProvider.
+    fn default() -> Self {
+        Self::Japan(JapanUrlProvider::default())
+    }
 }
 
 impl UrlProvider for ServerUrlProvider {

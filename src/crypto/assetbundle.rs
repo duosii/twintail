@@ -1,11 +1,24 @@
-use std::{io::SeekFrom, path::PathBuf};
+use std::{
+    io::SeekFrom,
+    path::{Path, PathBuf},
+};
 
+use futures::{stream, StreamExt};
 use tokio::{
     fs::File,
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader},
+    time::Instant,
 };
 
-use crate::{error::AssetbundleError, utils::fs::write_file};
+use crate::{
+    constants::color,
+    enums::CryptOperation,
+    error::AssetbundleError,
+    utils::{
+        fs::{scan_path, write_file},
+        progress::ProgressBar,
+    },
+};
 
 const UNITY_ASSETBUNDLE_MAGIC: &[u8] = b"\x55\x6e\x69\x74\x79\x46";
 const SEKAI_ASSETBUNDLE_MAGIC: &[u8] = b"\x10\x00\x00\x00";
@@ -14,19 +27,26 @@ const CHUNK_SIZE: usize = 65536;
 const HEADER_BLOCK_SIZE: usize = 8;
 const DECRYPT_SIZE: usize = 5;
 
-#[derive(PartialEq)]
-pub enum CryptOperation {
-    Encrypt,
-    Decrypt,
+pub struct AbCryptStrings {
+    pub process: &'static str,
+    pub processed: &'static str,
+}
+
+pub struct AbCryptArgs {
+    pub recursive: bool,
+    pub quiet: bool,
+    pub concurrent: usize,
+    pub operation: CryptOperation,
+    pub strings: AbCryptStrings,
 }
 
 /// Flips specific bytes in the provided reader's header into the provided buffer.
 ///
 /// Writes the rest of the file to the provided buffer.
-async fn crypt<T>(reader: &mut BufReader<T>, out_buf: &mut Vec<u8>) -> Result<(), AssetbundleError>
-where
-    T: AsyncRead + Unpin,
-{
+async fn crypt(
+    reader: &mut (impl AsyncRead + Unpin),
+    out_buf: &mut Vec<u8>,
+) -> Result<(), AssetbundleError> {
     // flip header bytes
     let mut header_buf = [0u8; HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
@@ -58,7 +78,7 @@ pub async fn decrypt_in_place(buffer: &mut Vec<u8>) -> Result<(), AssetbundleErr
     if buffer.len() < SEKAI_ASSETBUNDLE_MAGIC.len()
         || &buffer[..SEKAI_ASSETBUNDLE_MAGIC.len()] != SEKAI_ASSETBUNDLE_MAGIC
     {
-        return Err(AssetbundleError::NotEncrypted());
+        return Err(AssetbundleError::NotEncrypted);
     }
 
     // Remove the magic bytes
@@ -79,15 +99,14 @@ pub async fn decrypt_in_place(buffer: &mut Vec<u8>) -> Result<(), AssetbundleErr
 /// Decrypts an encrypted AssetBundle, returning the decrypted bytes.
 ///
 /// Implementation credit: https://github.com/mos9527/sssekai/blob/main/sssekai/crypto/AssetBundle.py
-pub async fn decrypt<T>(reader: &mut BufReader<T>) -> Result<Vec<u8>, AssetbundleError>
-where
-    T: AsyncRead + Unpin,
-{
+pub async fn decrypt(
+    reader: &mut (impl AsyncWrite + AsyncSeek + AsyncRead + Unpin),
+) -> Result<Vec<u8>, AssetbundleError> {
     // see if the file contains the magic
     let mut magic_buf = vec![0; SEKAI_ASSETBUNDLE_MAGIC.len()];
     reader.read_exact(&mut magic_buf).await?;
     if magic_buf != SEKAI_ASSETBUNDLE_MAGIC {
-        return Err(AssetbundleError::NotEncrypted());
+        return Err(AssetbundleError::NotEncrypted);
     }
 
     let mut out_buffer = Vec::new();
@@ -99,16 +118,15 @@ where
 /// Encrypts an AssetBundle, returning the encrypted bytes.
 ///
 /// Implementation credit: https://github.com/mos9527/sssekai/blob/main/sssekai/crypto/AssetBundle.py
-pub async fn encrypt<T>(reader: &mut BufReader<T>) -> Result<Vec<u8>, AssetbundleError>
-where
-    T: AsyncWrite + AsyncSeek + AsyncRead + Unpin,
-{
+pub async fn encrypt(
+    reader: &mut (impl AsyncWrite + AsyncSeek + AsyncRead + Unpin),
+) -> Result<Vec<u8>, AssetbundleError> {
     // check magic to ensure that it's a unity asset bundle.
     let mut magic_buf = vec![0; UNITY_ASSETBUNDLE_MAGIC.len()];
     reader.read_exact(&mut magic_buf).await?;
     reader.seek(SeekFrom::Start(0)).await?;
     if magic_buf != UNITY_ASSETBUNDLE_MAGIC {
-        return Err(AssetbundleError::NotAssetbundle());
+        return Err(AssetbundleError::NotAssetbundle);
     }
 
     let mut out_buffer = Vec::new();
@@ -123,7 +141,7 @@ where
 /// Truncates and overwrites the file at out_path.
 pub async fn crypt_file(
     in_path: &PathBuf,
-    out_path: &PathBuf,
+    out_path: &Path,
     operation: &CryptOperation,
 ) -> Result<(), AssetbundleError> {
     // decrypt
@@ -139,6 +157,100 @@ pub async fn crypt_file(
     write_file(out_path, &crypted).await?;
 
     Ok(())
+}
+
+/// Encrypts or decrypts a an entire path.
+///
+/// If out_path is not provided, files will be encrypted/decrypted in-place.
+/// Truncates and overwrites the file(s) at out_path.
+///
+/// Returns the number of files that were encrypted or decrypted.
+pub async fn crypt_path(
+    in_path: impl AsRef<Path>,
+    out_path: Option<impl AsRef<Path>>,
+    crypt_args: &AbCryptArgs,
+) -> Result<usize, AssetbundleError> {
+    let in_path = in_path.as_ref();
+    let out_path = out_path.as_ref().map(|p| p.as_ref()).unwrap_or(in_path);
+    let in_place = in_path == out_path;
+    let show_progress = !crypt_args.quiet;
+
+    // get the paths we need to encrypt
+    let scan_progress_bar = if show_progress {
+        println!(
+            "{}[1/2] {}Scanning files...",
+            color::TEXT_VARIANT.render_fg(),
+            color::TEXT.render_fg()
+        );
+        Some(ProgressBar::spinner())
+    } else {
+        None
+    };
+
+    let in_paths = scan_path(in_path, crypt_args.recursive).await?;
+
+    if let Some(scan_progress) = scan_progress_bar {
+        scan_progress.finish_and_clear();
+    }
+
+    // start processing these files
+    let crypt_start = Instant::now();
+    if show_progress {
+        println!(
+            "{}[2/2] {}{} files...",
+            color::TEXT_VARIANT.render_fg(),
+            color::TEXT.render_fg(),
+            crypt_args.strings.process,
+        );
+    }
+
+    // compute paths
+    let in_out_paths: Vec<(PathBuf, PathBuf)> = in_paths
+        .into_iter()
+        .map(|path| {
+            if in_place {
+                (path.clone(), path)
+            } else {
+                let relative = path.strip_prefix(in_path).ok().unwrap_or(&path);
+                let out = out_path.join(relative);
+                (path, out)
+            }
+        })
+        .collect();
+
+    // asynchronously encrypt the files
+    let total_path_count = in_out_paths.len() as u64;
+    let progress_bar = ProgressBar::progress(total_path_count);
+
+    let decrypt_result: Vec<Result<(), AssetbundleError>> = stream::iter(&in_out_paths)
+        .map(|paths| async {
+            let result = crypt_file(&paths.0, &paths.1, &crypt_args.operation).await;
+            if show_progress {
+                progress_bar.inc(1);
+            }
+            result
+        })
+        .buffer_unordered(crypt_args.concurrent)
+        .collect()
+        .await;
+    let success_count = decrypt_result
+        .iter()
+        .filter(|&result| result.is_ok())
+        .count();
+
+    // stop progress bar & print the sucess message
+    progress_bar.finish_and_clear();
+    println!(
+        "{}Successfully {} {} / {} files in {:?}.{}",
+        color::SUCCESS.render_fg(),
+        crypt_args.strings.processed,
+        success_count,
+        total_path_count,
+        Instant::now().duration_since(crypt_start),
+        color::TEXT.render_fg(),
+    );
+
+    Ok(success_count)
 }
 
 #[cfg(test)]
@@ -201,7 +313,7 @@ mod tests {
 
         // Try to decrypt
         let result = crypt_file(&input_path, &output_path, &CryptOperation::Decrypt).await;
-        assert!(matches!(result, Err(AssetbundleError::NotEncrypted())));
+        assert!(matches!(result, Err(AssetbundleError::NotEncrypted)));
 
         Ok(())
     }
@@ -218,7 +330,7 @@ mod tests {
 
         // Try to encrypt
         let result = crypt_file(&input_path, &output_path, &CryptOperation::Encrypt).await;
-        assert!(matches!(result, Err(AssetbundleError::NotAssetbundle())));
+        assert!(matches!(result, Err(AssetbundleError::NotAssetbundle)));
 
         Ok(())
     }

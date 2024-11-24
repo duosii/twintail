@@ -35,7 +35,10 @@ pub mod command {
     pub const SUITE_PROCESSING: &str = "Processing suitemaster files...";
     pub const SUITE_SAVING: &str = "Saving encrypted suitemaster files...";
     pub const SUITE_DECRYPTING: &str = "Decrypting suitemaster files...";
-    pub const SUITE_ENCRYPTED_FILE_NAME: &str = "00_suitemasterfile";
+    pub const SUITE_ENCRYPTED_FILE_NAME: &str = "_suitemasterfile";
+
+    // fetch suite
+    pub const SUITE_VERSION: &str = "[Suite Data Version]:";
 
     // extract hash
     pub const EXTRACTING: &str = "Extracting version and hash from file...";

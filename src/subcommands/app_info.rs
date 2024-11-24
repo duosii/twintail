@@ -1,10 +1,10 @@
-use clap::Args;
+use std::time::Duration;
 
-use crate::{
-    constants::{color, strings},
-    error::CommandError,
-    utils::{apk_extractor::ApkExtractor, progress::ProgressBar},
-};
+use clap::Args;
+use indicatif::ProgressBar;
+use twintail::ApkExtractor;
+
+use crate::constants::{color, strings};
 
 #[derive(Debug, Args)]
 pub struct AppInfoArgs {
@@ -16,7 +16,7 @@ pub struct AppInfoArgs {
 ///
 /// If successful, the hash and app version
 /// will be printed out to the console.
-pub fn app_info(args: AppInfoArgs) -> Result<(), CommandError> {
+pub fn app_info(args: AppInfoArgs) -> Result<(), twintail::Error> {
     // create assetbundle spinner
     println!(
         "{}[1/1] {}{}",
@@ -24,7 +24,8 @@ pub fn app_info(args: AppInfoArgs) -> Result<(), CommandError> {
         color::TEXT.render_fg(),
         strings::command::EXTRACTING,
     );
-    let extract_spinner = ProgressBar::spinner();
+    let extract_spinner = ProgressBar::new_spinner();
+    extract_spinner.enable_steady_tick(Duration::from_millis(100));
 
     // create extractor & extract app info
     let mut extractor = ApkExtractor::from_file(&args.apk_path)?;
@@ -36,14 +37,14 @@ pub fn app_info(args: AppInfoArgs) -> Result<(), CommandError> {
     if app_info.hashes.is_empty() {
         println!(
             "{}{}{}",
-            color::clap::ERROR.render_fg(),
+            color::ERROR.render_fg(),
             strings::command::EXTRACT_FAIL,
             color::TEXT.render_fg(),
         );
     } else {
         println!(
             "{}{}{}",
-            color::clap::VALID.render_fg(),
+            color::SUCCESS.render_fg(),
             strings::command::EXTRACT_SUCCESS,
             color::TEXT.render_fg(),
         );

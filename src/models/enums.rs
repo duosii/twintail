@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use crate::constants::crypto;
+use crate::{config::AesConfig, constants::crypto};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
 pub enum Platform {
@@ -16,6 +16,12 @@ impl ToString for Platform {
             Platform::Ios => String::from("ios"),
         }
     }
+}
+
+#[derive(PartialEq)]
+pub enum CryptOperation {
+    Encrypt,
+    Decrypt,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
@@ -33,10 +39,6 @@ pub enum Server {
     Global,
 }
 
-pub struct AesConfig {
-    pub key: &'static [u8],
-    pub iv: &'static [u8],
-}
 impl Server {
     pub fn get_aes_config(&self) -> AesConfig {
         match self {
