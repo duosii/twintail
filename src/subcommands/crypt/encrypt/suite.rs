@@ -19,8 +19,8 @@ pub struct EncryptSuiteArgs {
     #[arg(short, long, value_enum, default_value_t = Server::Japan)]
     pub server: Server,
 
-    /// The total number of files to split the suitemaster files into
-    #[arg(short, long, default_value_t = 6)]
+    /// The number of files to split the encrypted suitemaster files into
+    #[arg(long, default_value_t = 7)]
     pub split: usize,
 
     /// Whether to output status messages

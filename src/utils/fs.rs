@@ -1,14 +1,14 @@
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::{
-    collections::VecDeque,
-    path::{Path, PathBuf},
+    collections::VecDeque, path::{Path, PathBuf}
 };
 use tokio::{
     fs::{self, create_dir_all, File},
     io::AsyncWriteExt,
 };
 
-use crate::error::CommonError;
+use crate::{error::CommonError, models::serde::ValueF32};
 
 /// Provided a path, will return all files related to that path.
 /// 1. If the path corresponds to an individual file, only that file's path will be returned.
@@ -46,9 +46,9 @@ pub async fn scan_path(path: &Path, recursive: bool) -> Result<Vec<PathBuf>, tok
 ///
 /// Any missing directories will be created.
 /// If a file already exists at [`out_path`], it will be truncated with the new data.
-pub async fn write_file(out_path: &Path, data: &[u8]) -> Result<(), tokio::io::Error> {
+pub async fn write_file(out_path: impl AsRef<Path>, data: &[u8]) -> Result<(), tokio::io::Error> {
     // write file
-    if let Some(parent) = out_path.parent() {
+    if let Some(parent) = out_path.as_ref().parent() {
         create_dir_all(parent).await?;
     }
     let mut out_file = File::options()
@@ -63,7 +63,10 @@ pub async fn write_file(out_path: &Path, data: &[u8]) -> Result<(), tokio::io::E
 
 /// Extracts the inner fields of a suitemaster file and writes them
 /// to the provided out_path as .json files.
-pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommonError> {
+pub async fn extract_suitemaster_file(
+    file: Value,
+    out_path: &Path,
+) -> Result<Vec<String>, CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
         None => Err(CommonError::NotFound(
@@ -71,27 +74,33 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<()
         )),
     }?;
 
+    // let out_path = out_path.join(format!("{}.json", obj.iter().next().unwrap().0));
+    // write_file(out_path, &serde_json::to_vec(obj)?).await?;
+
     // get inner fields
+    let mut keys = Vec::new();
     for (key, suite_values) in obj {
         // convert suite_values to a vec
         let values_as_vec = serde_json::to_vec(suite_values)?;
 
         let out_path = out_path.join(format!("{}.json", key));
         write_file(&out_path, &values_as_vec).await?;
+
+        keys.push(key.clone());
     }
 
-    Ok(())
+    Ok(keys)
 }
 
 /// Deserializes a .json file into a serde_json Value.
 ///
 /// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
-pub fn deserialize_file(path: &PathBuf) -> Result<Value, CommonError> {
+pub fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
     let in_file = std::fs::File::open(path)?;
 
     // deserialize contents
     let reader = std::io::BufReader::new(in_file);
-    let deserialized: Value = serde_json::from_reader(reader)?;
+    let deserialized = serde_json::from_reader(reader)?;
 
     Ok(deserialized)
 }

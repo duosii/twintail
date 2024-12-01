@@ -1,28 +1,24 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use futures::{stream, StreamExt};
-use serde_json::{Map, Value};
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
     time::Instant,
 };
 
 use crate::{
-    config::{crypt_config::CryptConfig, AesConfig},
-    constants::{color, strings},
-    crypto::{
+    config::{crypt_config::CryptConfig, AesConfig}, constants::{color, strings}, crypto::{
         aes_msgpack,
         assetbundle::{self, AbCryptArgs},
-    },
-    enums::CryptOperation,
-    error::{CommandError, Error},
-    utils::{
+    }, enums::CryptOperation, error::{CommandError, Error}, models::serde::ValueF32, utils::{
         fs::{deserialize_file, scan_path, write_file},
         progress::ProgressBar,
-    },
+    }
 };
 
-type DeserializedSuiteFile = (String, Value);
+// When deserializing suitemaster files, we have to be careful to deserialize floats as f32
+// Otherwise the game will not be able to properly read the values and crash/error.
+type DeserializedSuiteFile = (String, ValueF32);
 
 /// A struct responsible for encryption.
 #[derive(Default)]
@@ -206,7 +202,7 @@ fn serialize_values(
     chunk: &[DeserializedSuiteFile],
     aes_config: &AesConfig,
 ) -> Result<Vec<u8>, rmp_serde::encode::Error> {
-    let values_map: Map<String, Value> = chunk
+    let values_map: HashMap<String, ValueF32> = chunk
         .iter()
         .map(|file| (file.0.clone(), file.1.clone()))
         .collect();
