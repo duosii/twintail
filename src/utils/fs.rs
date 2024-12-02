@@ -66,7 +66,7 @@ pub async fn write_file(out_path: impl AsRef<Path>, data: &[u8]) -> Result<(), t
 pub async fn extract_suitemaster_file(
     file: Value,
     out_path: &Path,
-) -> Result<Vec<String>, CommonError> {
+) -> Result<(), CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
         None => Err(CommonError::NotFound(
@@ -74,22 +74,10 @@ pub async fn extract_suitemaster_file(
         )),
     }?;
 
-    // let out_path = out_path.join(format!("{}.json", obj.iter().next().unwrap().0));
-    // write_file(out_path, &serde_json::to_vec(obj)?).await?;
+    let out_path = out_path.join(format!("{}.json", obj.iter().next().unwrap().0));
+    write_file(out_path, &serde_json::to_vec(obj)?).await?;
 
-    // get inner fields
-    let mut keys = Vec::new();
-    for (key, suite_values) in obj {
-        // convert suite_values to a vec
-        let values_as_vec = serde_json::to_vec(suite_values)?;
-
-        let out_path = out_path.join(format!("{}.json", key));
-        write_file(&out_path, &values_as_vec).await?;
-
-        keys.push(key.clone());
-    }
-
-    Ok(keys)
+    Ok(())
 }
 
 /// Deserializes a .json file into a serde_json Value.
