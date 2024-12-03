@@ -1,6 +1,9 @@
 use core::fmt;
 
-use serde::{de::{self, Visitor}, Deserialize, Serialize};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Serialize,
+};
 
 /// Wrapper that converts f64 floats into an f32 when deserializing.
 #[derive(Serialize, Clone)]
@@ -34,9 +37,9 @@ impl<'de> Deserialize<'de> for F32Wrapper {
 }
 
 /// Custom intermediate type for JSON data.
-/// 
+///
 /// Acts very similarly to [`serde_json::Value`], but all floats are parsed as f32 instead of f64.
-/// 
+///
 /// This is important for suitemaster files as the game client is not able to parse f64 values.
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(untagged)]

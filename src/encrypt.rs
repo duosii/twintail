@@ -7,13 +7,19 @@ use tokio::{
 };
 
 use crate::{
-    config::{crypt_config::CryptConfig, AesConfig}, constants::{color, strings}, crypto::{
+    config::{crypt_config::CryptConfig, AesConfig},
+    constants::{color, strings},
+    crypto::{
         aes_msgpack,
         assetbundle::{self, AbCryptArgs},
-    }, enums::CryptOperation, error::{CommandError, Error}, models::serde::ValueF32, utils::{
+    },
+    enums::CryptOperation,
+    error::{CommandError, Error},
+    models::serde::ValueF32,
+    utils::{
         fs::{deserialize_file, scan_path, write_file},
         progress::ProgressBar,
-    }
+    },
 };
 
 // When deserializing suitemaster files, we have to be careful to deserialize floats as f32
@@ -109,7 +115,7 @@ impl Encrypter {
                 stream::iter(&paths)
                     .map(|path| async {
                         match path.file_stem().and_then(|os_str| os_str.to_str()) {
-                            Some(file_stem) => match deserialize_file(&path.clone()) {
+                            Some(file_stem) => match deserialize_file(&path.clone()).await {
                                 Ok(value) => {
                                     if let Some(progress) = &deserialize_progress {
                                         progress.inc(1);

@@ -1,14 +1,15 @@
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::{
-    collections::VecDeque, path::{Path, PathBuf}
+    collections::VecDeque,
+    path::{Path, PathBuf},
 };
 use tokio::{
     fs::{self, create_dir_all, File},
     io::AsyncWriteExt,
 };
 
-use crate::{error::CommonError, models::serde::ValueF32};
+use crate::error::CommonError;
 
 /// Provided a path, will return all files related to that path.
 /// 1. If the path corresponds to an individual file, only that file's path will be returned.
@@ -63,10 +64,7 @@ pub async fn write_file(out_path: impl AsRef<Path>, data: &[u8]) -> Result<(), t
 
 /// Extracts the inner fields of a suitemaster file and writes them
 /// to the provided out_path as .json files.
-pub async fn extract_suitemaster_file(
-    file: Value,
-    out_path: &Path,
-) -> Result<(), CommonError> {
+pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
         None => Err(CommonError::NotFound(
@@ -83,13 +81,9 @@ pub async fn extract_suitemaster_file(
 /// Deserializes a .json file into a serde_json Value.
 ///
 /// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
-pub fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
-    let in_file = std::fs::File::open(path)?;
-
-    // deserialize contents
-    let reader = std::io::BufReader::new(in_file);
-    let deserialized = serde_json::from_reader(reader)?;
-
+pub async fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
+    let contents = tokio::fs::read_to_string(path).await?;
+    let deserialized = serde_json::from_str(&contents)?;
     Ok(deserialized)
 }
 
