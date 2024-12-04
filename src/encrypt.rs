@@ -202,6 +202,35 @@ impl Encrypter {
 
         Ok(deserialized_len)
     }
+
+    /// Encrypts .json bytes into msgpack + AES encrypted bytes.
+    ///
+    /// The .json file at ``in_path`` will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
+    ///
+    /// The file will be AES encrypted according to this encryptor's AES config.
+    ///
+    /// This function will return a Vec of bytes containing the encrypted representation of the provided ``json_bytes``
+    pub async fn encrypt_json_bytes(&self, json_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+        let bytes_deserialized: ValueF32 = serde_json::from_slice(json_bytes)?;
+        let encrypted = aes_msgpack::into_vec(&bytes_deserialized, &self.config.aes_config)?;
+        Ok(encrypted)
+    }
+
+    /// Encrypts a .json file at the provided ``in_path`` into a msgpack + AES encrypted value.
+    ///
+    /// The .json file at ``in_path`` will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
+    ///
+    /// The file will be AES encrypted according to this encryptor's AES config.
+    pub async fn encrypt_json_file(
+        &self,
+        in_path: impl AsRef<Path>,
+        out_path: impl AsRef<Path>,
+    ) -> Result<(), Error> {
+        let file_string = tokio::fs::read_to_string(in_path.as_ref()).await?;
+        let encrypted_bytes = self.encrypt_json_bytes(file_string.as_bytes()).await?;
+        write_file(out_path, &encrypted_bytes).await?;
+        Ok(())
+    }
 }
 
 fn serialize_values(
@@ -222,6 +251,56 @@ mod tests {
     use tokio::fs::write;
 
     use super::*;
+
+    #[tokio::test]
+    async fn test_encrypter_encrypt_json_bytes() -> Result<(), Error> {
+        let json_bytes = r#"
+            {
+                "name": "inabakumori",
+                "values": [
+                    "value1",
+                    "value2"
+                ],
+                "songs": 3
+            }
+        "#
+        .as_bytes();
+
+        let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).build());
+        encrypter.encrypt_json_bytes(json_bytes).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_encrypter_encrypt_json_file() -> Result<(), Error> {
+        let dir = tempdir()?;
+
+        let in_path = &dir.path().join("suite1.json");
+        let out_path = &dir.path().join("out.json");
+
+        write(
+            &in_path,
+            r#"
+                {
+                    "name": "inabakumori",
+                    "values": [
+                        "value1",
+                        "value2"
+                    ],
+                    "songs": 3
+                }
+            "#,
+        )
+        .await?;
+
+        let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).build());
+        encrypter.encrypt_json_file(in_path, out_path).await?;
+
+        assert!(out_path.exists(), "file should have been created");
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_encrypter_encrypt_suite_path() -> Result<(), Error> {
