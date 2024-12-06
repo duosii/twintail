@@ -1,6 +1,5 @@
 use aes::cipher::{
-    block_padding::{Pkcs7, UnpadError},
-    BlockDecryptMut, BlockEncryptMut, KeyIvInit,
+    block_padding::{Pkcs7, UnpadError}, generic_array::GenericArray, BlockDecryptMut, BlockEncryptMut, KeyIvInit
 };
 
 use crate::config::AesConfig;
@@ -10,23 +9,18 @@ type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
 
 /// Decrypt bytes encrypted with Aes128 using a predefined key & iv.
 pub fn decrypt(block: &[u8], config: &AesConfig) -> Result<Vec<u8>, UnpadError> {
-    let cipher = Aes128CbcDec::new(config.key.into(), config.iv.into());
+    let key = GenericArray::from_slice(&config.key);
+    let iv = GenericArray::from_slice(&config.iv);
+    let cipher = Aes128CbcDec::new(key, iv);
 
     cipher.decrypt_padded_vec_mut::<Pkcs7>(block)
 }
 
-// /// Decrypt bytes in-place encrypted with Aes128 using a predefined key & iv.
-// pub fn decrypt_in_place(block: &mut [u8], server: &Server) -> Result<(), UnpadError> {
-//     let config = server.get_aes_config();
-//     let cipher = Aes128CbcDec::new(config.key.into(), config.iv.into());
-
-//     cipher.decrypt_padded_mut::<Pkcs7>(block)?;
-//     Ok(())
-// }
-
 /// Encrypt bytes using a predefined key & iv.
 pub fn encrypt(block: &[u8], config: &AesConfig) -> Vec<u8> {
-    let cipher = Aes128CbcEnc::new(config.key.into(), config.iv.into());
+    let key = GenericArray::from_slice(&config.key);
+    let iv = GenericArray::from_slice(&config.iv);
+    let cipher = Aes128CbcEnc::new(key, iv);
 
     cipher.encrypt_padded_vec_mut::<Pkcs7>(block)
 }

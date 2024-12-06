@@ -44,7 +44,7 @@ impl<P: UrlProvider> Fetcher<P> {
             config.version.clone(),
             config.hash.clone(),
             config.platform,
-            config.aes_config,
+            config.aes_config.clone(),
             config.url_provider.clone(),
         )
         .await?;

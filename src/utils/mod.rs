@@ -13,3 +13,13 @@ pub fn available_parallelism() -> usize {
         constants::DEFAULT_PARALLELISM
     }
 }
+
+/// Parses a hex string into a Vec of bytes.
+/// 
+/// Implementation credit: https://stackoverflow.com/a/52992629
+pub fn decode_hex(hex_str: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
+    (0..hex_str.len())
+        .step_by(2)
+        .map(|num| u8::from_str_radix(&hex_str[num..num + 2], 16))
+        .collect()
+}
