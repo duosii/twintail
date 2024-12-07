@@ -13,6 +13,7 @@ pub struct CryptConfig {
     pub concurrency: usize,
     pub recursive: bool,
     pub quiet: bool,
+    pub pretty_json: bool,
 }
 
 impl Default for CryptConfig {
@@ -22,6 +23,7 @@ impl Default for CryptConfig {
             concurrency: available_parallelism(),
             recursive: DEFAULT_RECURSIVE,
             quiet: DEFAULT_QUIET,
+            pretty_json: false
         }
     }
 }
@@ -81,6 +83,16 @@ impl CryptConfigBuilder {
     /// By default, this is false.
     pub fn quiet(mut self, quiet: bool) -> Self {
         self.config.quiet = quiet;
+        self
+    }
+    
+    /// When performing operations with JSON files, whether to
+    /// format those files in a more readable format.
+    /// 
+    /// This will slightly increase the size of any output .json files
+    /// due to extra spaces and newlines.
+    pub fn pretty_json(mut self, pretty: bool) -> Self {
+        self.config.pretty_json = pretty;
         self
     }
 

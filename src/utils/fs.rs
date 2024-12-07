@@ -64,7 +64,9 @@ pub async fn write_file(out_path: impl AsRef<Path>, data: &[u8]) -> Result<(), t
 
 /// Extracts the inner fields of a suitemaster file and writes them
 /// to the provided out_path as .json files.
-pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<(), CommonError> {
+/// 
+/// If pretty is true, the extracted fields will be JSON prettified.
+pub async fn extract_suitemaster_file(file: Value, out_path: &Path, pretty: bool) -> Result<(), CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
         None => Err(CommonError::NotFound(
@@ -72,8 +74,15 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<()
         )),
     }?;
 
-    let out_path = out_path.join(format!("{}.json", obj.iter().next().unwrap().0));
-    write_file(out_path, &serde_json::to_vec(obj)?).await?;
+    for (field_key, field_value) in obj.iter() {
+        let extracted_out_path = out_path.join(format!("{}.json", field_key));
+        let json_bytes = if pretty {
+            serde_json::to_vec_pretty(&field_value)
+        } else {
+            serde_json::to_vec(&field_value)
+        }?;
+        write_file(extracted_out_path, &json_bytes).await?;
+    }
 
     Ok(())
 }
@@ -83,6 +92,15 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path) -> Result<()
 /// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
 pub async fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
     let contents = tokio::fs::read_to_string(path).await?;
+    let deserialized = serde_json::from_str(&contents)?;
+    Ok(deserialized)
+}
+
+/// Synchronously deserializes a .json file into a serde_json Value.
+///
+/// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
+pub fn deserialize_file_sync<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
+    let contents = std::fs::read_to_string(path)?;
     let deserialized = serde_json::from_str(&contents)?;
     Ok(deserialized)
 }

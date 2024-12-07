@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use futures::{stream, StreamExt};
+use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
     time::Instant,
@@ -17,7 +17,7 @@ use crate::{
     error::{CommandError, Error},
     models::serde::ValueF32,
     utils::{
-        fs::{deserialize_file, scan_path, write_file},
+        fs::{deserialize_file_sync, scan_path, write_file},
         progress::ProgressBar,
     },
 };
@@ -111,11 +111,11 @@ impl Encrypter {
         // deserialize all paths to [`serde_json::Value`]s.
         let mut deserialized_files: Vec<DeserializedSuiteFile> = Vec::new();
         {
-            let deserialize_results: Vec<Result<DeserializedSuiteFile, CommandError>> =
-                stream::iter(&paths)
-                    .map(|path| async {
+            let deserialize_results: Vec<Result<DeserializedSuiteFile, CommandError>> = 
+                paths.par_iter()
+                    .map(|path| {
                         match path.file_stem().and_then(|os_str| os_str.to_str()) {
-                            Some(file_stem) => match deserialize_file(&path.clone()).await {
+                            Some(file_stem) => match deserialize_file_sync(&path.clone()) {
                                 Ok(value) => {
                                     if let Some(progress) = &deserialize_progress {
                                         progress.inc(1);
@@ -127,9 +127,7 @@ impl Encrypter {
                             None => Err(CommandError::FileStem(path.to_str().unwrap_or("").into())),
                         }
                     })
-                    .buffer_unordered(self.config.concurrency)
-                    .collect()
-                    .await;
+                    .collect();
 
             // separate errors and DeserializedFiles
             let mut errors = Vec::new();
@@ -166,17 +164,16 @@ impl Encrypter {
             (deserialized_len + max_chunks - 1) / max_chunks
         };
 
-        let chunks: Vec<Result<Vec<u8>, rmp_serde::encode::Error>> =
-            stream::iter(deserialized_files.chunks(chunk_size))
-                .map(|chunk| async {
-                    match serialize_values(chunk, &self.config.aes_config) {
-                        Ok(bytes) => Ok(bytes),
-                        Err(err) => Err(err),
-                    }
-                })
-                .buffer_unordered(self.config.concurrency)
-                .collect()
-                .await;
+        let chunks: Vec<Result<Vec<u8>, rmp_serde::encode::Error>> = deserialized_files
+            .chunks(chunk_size)
+            .par_bridge()
+            .map(|chunk| {
+                match serialize_values(chunk, &self.config.aes_config) {
+                    Ok(bytes) => Ok(bytes),
+                    Err(err) => Err(err),
+                }
+            })
+            .collect();
 
         // write to out directory
         for (n, result) in chunks.into_iter().enumerate() {

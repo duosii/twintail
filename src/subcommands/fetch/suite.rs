@@ -39,6 +39,10 @@ pub struct SuiteArgs {
     #[arg(short, long, default_value_t = false)]
     pub quiet: bool,
 
+    /// Whether to save suitemaster .json files in a more compact format, reducing their file size
+    #[arg(long, default_value_t = false)]
+    pub compact: bool,
+
     /// The directory to output the suitemaster files to
     pub out_path: String,
 }
@@ -51,6 +55,7 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), twintail::Error> {
         .retry(args.retry)
         .decrypt(!args.encrypt)
         .quiet(args.quiet)
+        .pretty_json(!args.compact)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })

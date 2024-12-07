@@ -23,6 +23,10 @@ pub struct DecryptSuiteArgs {
     #[arg(short, long, default_value_t = false)]
     pub quiet: bool,
 
+    /// Whether to save suitemaster .json files in a more compact format, reducing their file size
+    #[arg(long, default_value_t = false)]
+    pub compact: bool,
+
     /// Path to the file or directory to decrypt
     pub in_path: String,
 
@@ -36,6 +40,7 @@ pub async fn decrypt_suite(args: DecryptSuiteArgs) -> Result<(), twintail::Error
         .recursive(args.recursive)
         .server(args.server)
         .quiet(args.quiet)
+        .pretty_json(!args.compact)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })

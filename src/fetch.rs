@@ -175,12 +175,13 @@ impl<P: UrlProvider> Fetcher<P> {
         let retry_strat = FixedInterval::from_millis(200).take(self.config.retry);
         let download_start = Instant::now();
         let do_decrypt = self.config.decrypt;
+        let pretty_json = self.config.pretty_json;
 
         let download_results: Vec<Result<(), CommandError>> =
             stream::iter(&suitemaster_split_paths)
                 .map(|api_path| async {
                     let retry_result = Retry::spawn(retry_strat.clone(), || {
-                        download_suitemasterfile(&self.client, api_path, out_path, do_decrypt)
+                        download_suitemasterfile(&self.client, api_path, out_path, do_decrypt, pretty_json)
                     })
                     .await;
                     if let Some(progress) = &download_progress {
@@ -396,16 +397,19 @@ impl<P: UrlProvider> Fetcher<P> {
 ///
 /// This will unpack each suitemasterfile and save the contents to the provided out_path.
 ///
-/// If encrypt is true, the suitemaster file will not be unpacked.
+/// If decrypt is false, the suitemaster file will not be unpacked.
+/// 
+/// If pretty is true, the extacted suitemaster files will be saved in a more readable format.
 async fn download_suitemasterfile<P: UrlProvider>(
     client: &SekaiClient<P>,
     api_file_path: &str,
     out_path: &Path,
     decrypt: bool,
+    pretty: bool,
 ) -> Result<(), CommandError> {
     if decrypt {
         let value = client.get_suitemasterfile_as_value(api_file_path).await?;
-        extract_suitemaster_file(value, out_path).await?;
+        extract_suitemaster_file(value, out_path, pretty).await?;
         Ok(())
     } else {
         let file_bytes = client.get_suitemasterfile(api_file_path).await?;

@@ -26,6 +26,7 @@ pub struct FetchConfig<P: UrlProvider> {
     pub retry: usize,
     pub decrypt: bool,
     pub url_provider: P,
+    pub pretty_json: bool,
 }
 
 impl FetchConfig<ServerUrlProvider> {
@@ -60,6 +61,7 @@ impl<P: UrlProvider> FetchConfig<P> {
             platform: DEFAULT_PLATFORM,
             retry: DEFAULT_RETRY,
             decrypt: DEFAULT_DECRYPT,
+            pretty_json: false
         }
     }
 }
@@ -168,6 +170,16 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
     /// By default, this is the URLs for the Japan server.
     pub fn url_provider(mut self, provider: P) -> Self {
         self.config.url_provider = provider;
+        self
+    }
+
+    /// When performing operations with JSON files, whether to
+    /// format those files in a more readable format.
+    /// 
+    /// This will slightly increase the size of any output .json files
+    /// due to extra spaces and newlines.
+    pub fn pretty_json(mut self, pretty: bool) -> Self {
+        self.config.pretty_json = pretty;
         self
     }
 

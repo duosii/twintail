@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, time::Duration};
 
 use futures::{stream, StreamExt};
 use serde_json::Value;
@@ -96,12 +96,14 @@ impl Decrypter {
             );
         }
         let decrypt_progress = ProgressBar::progress(to_decrypt_paths.len() as u64);
+        decrypt_progress.enable_steady_tick(Duration::from_millis(200));
 
         // begin decrypting
+        let pretty_json = self.config.pretty_json;
         let decrypt_results: Vec<Result<(), Error>> = stream::iter(to_decrypt_paths)
             .map(|in_path| async {
                 let decrypt_result =
-                    decrypt_suitemaster_file(in_path, out_path, &self.config.aes_config).await;
+                    decrypt_suitemaster_file(in_path, out_path, &self.config.aes_config, pretty_json).await;
                 if show_progress {
                     decrypt_progress.inc(1)
                 }
@@ -146,10 +148,13 @@ impl Decrypter {
 
 /// Reads the file at the input path as a [`serde_json::Value`]
 /// and extracts its inner fields to out_path as .json files.
+/// 
+/// If pretty is true, then the extracted suitemaster json files will be prettified.
 async fn decrypt_suitemaster_file(
     in_path: PathBuf,
     out_path: &Path,
     aes_config: &AesConfig,
+    pretty: bool
 ) -> Result<(), Error> {
     // read in file
     let mut file = File::open(in_path).await?;
@@ -160,7 +165,7 @@ async fn decrypt_suitemaster_file(
     let deserialized: Value = aes_msgpack::from_slice(&file_buf, aes_config)?;
 
     // write to out_path
-    extract_suitemaster_file(deserialized, out_path).await?;
+    extract_suitemaster_file(deserialized, out_path, pretty).await?;
 
     Ok(())
 }

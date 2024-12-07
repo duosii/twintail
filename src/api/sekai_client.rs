@@ -345,19 +345,8 @@ impl<T: UrlProvider> SekaiClient<T> {
     ///
     /// This function will, if successful, return a ``serde_json::Value`` representing a decrypted suitemasterfile.
     pub async fn get_suitemasterfile_as_value(&self, file_path: &str) -> Result<Value, ApiError> {
-        let request = self
-            .client
-            .get(self.url_provider.suitemasterfile(file_path))
-            .headers(self.headers.get_map());
-
-        match request.send().await?.error_for_status() {
-            Ok(response) => {
-                // parse body
-                let bytes = response.bytes().await?;
-                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
-            }
-            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
-        }
+        let bytes = self.get_suitemasterfile(file_path).await?;
+        Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
     }
 }
 
@@ -367,13 +356,19 @@ mod tests {
     use crate::{api::url::test_provider::TestUrlProvider, enums::Server, models::api::AppVersion};
 
     const SIGNATURE_COOKIE_VALUE: &str = "signature_cookie";
+    const SUITEMASTER_FILE_CONTENT: &str = "HELLO SUITEMASTER FILE!!!";
+    const SUITEMASTER_FILE_PATH: &str = "suitemasterfile/1.0.0/test_file";
+
+    fn get_aes_config() -> AesConfig {
+        Server::Japan.get_aes_config()
+    }
 
     async fn get_client(server_url: String) -> SekaiClient<TestUrlProvider> {
         SekaiClient::new_with_url_provider(
             "3.9".to_string(),
             "393939".to_string(),
             Platform::Android,
-            Server::Japan.get_aes_config(),
+            get_aes_config(),
             TestUrlProvider::new(server_url),
         )
         .await
@@ -387,6 +382,15 @@ mod tests {
             .mock("POST", "/api/signature")
             .with_status(200)
             .with_header(header::name::SET_COOKIE, SIGNATURE_COOKIE_VALUE)
+            .create_async()
+            .await;
+
+        // suitemaster file
+        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
+        server
+            .mock("GET", "/api/suitemasterfile/1.0.0/test_file")
+            .with_status(200)
+            .with_body(encrypted_suitemaster_file)
             .create_async()
             .await;
 
@@ -437,6 +441,43 @@ mod tests {
         assert_eq!(
             client.headers.0.get(header::name::COOKIE).unwrap(),
             SIGNATURE_COOKIE_VALUE
+        )
+    }
+
+    #[tokio::test]
+    async fn test_get_suitemasterfile() {
+        let server = get_server().await;
+        let client = get_client(server.url()).await;
+
+        let response = client.get_suitemasterfile(SUITEMASTER_FILE_PATH).await.unwrap();
+
+        // compare
+        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
+        assert_eq!(
+            response,
+            encrypted_suitemaster_file,
+            "response from server and computed value should be the same"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_suitemasterfile_as_value() {
+        let server = get_server().await;
+        let client = get_client(server.url()).await;
+
+        let response = client.get_suitemasterfile_as_value(SUITEMASTER_FILE_PATH)
+            .await
+            .unwrap();
+
+        // get value to compare response with
+        let aes_config = get_aes_config();
+        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &aes_config).unwrap();
+        let decrypted_suitemaster_file: Value = aes_msgpack::from_slice(&encrypted_suitemaster_file, &aes_config).unwrap();
+
+        assert_eq!(
+            response, 
+            decrypted_suitemaster_file,
+            "response from server and computed value should be the same"
         )
     }
 }
