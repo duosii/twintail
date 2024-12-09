@@ -17,7 +17,7 @@ use crate::{
     error::{CommandError, Error},
     models::serde::ValueF32,
     utils::{
-        fs::{deserialize_file_sync, scan_path, write_file},
+        fs::{deserialize_file, scan_path, write_file},
         progress::ProgressBar,
     },
 };
@@ -115,7 +115,7 @@ impl Encrypter {
                 paths.par_iter()
                     .map(|path| {
                         match path.file_stem().and_then(|os_str| os_str.to_str()) {
-                            Some(file_stem) => match deserialize_file_sync(&path.clone()) {
+                            Some(file_stem) => match deserialize_file(&path.clone()) {
                                 Ok(value) => {
                                     if let Some(progress) = &deserialize_progress {
                                         progress.inc(1);

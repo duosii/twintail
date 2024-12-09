@@ -90,16 +90,7 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path, pretty: bool
 /// Deserializes a .json file into a serde_json Value.
 ///
 /// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
-pub async fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
-    let contents = tokio::fs::read_to_string(path).await?;
-    let deserialized = serde_json::from_str(&contents)?;
-    Ok(deserialized)
-}
-
-/// Synchronously deserializes a .json file into a serde_json Value.
-///
-/// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
-pub fn deserialize_file_sync<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
+pub fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
     let contents = std::fs::read_to_string(path)?;
     let deserialized = serde_json::from_str(&contents)?;
     Ok(deserialized)
