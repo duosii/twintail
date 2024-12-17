@@ -81,4 +81,18 @@ impl UrlProvider for JapanUrlProvider {
     fn suitemasterfile(&self, file_path: &str) -> String {
         format!("{}{}/{}", self.hosts.game, sekai::game::API, file_path)
     }
+
+    fn inherit(&self, inherit_id: &str, execute: bool) -> String {
+        format!(
+            "{}{}/{}?isExecuteInherit={}",
+            self.hosts.game,
+            sekai::game::INHERIT,
+            inherit_id,
+            if execute { "True" } else { "False" }
+        )
+    }
+
+    fn user_suite(&self, user_id: usize) -> String {
+        format!("{}{}/{}", self.hosts.game, sekai::game::USER_SUITE, user_id)
+    }
 }

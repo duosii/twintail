@@ -93,4 +93,18 @@ impl UrlProvider for ServerUrlProvider {
             Self::Global(provider) => provider.suitemasterfile(file_path),
         }
     }
+
+    fn inherit(&self, inherit_id: &str, execute: bool) -> String {
+        match self {
+            Self::Japan(provider) => provider.inherit(inherit_id, execute),
+            Self::Global(provider) => provider.inherit(inherit_id, execute),
+        }
+    }
+
+    fn user_suite(&self, user_id: usize) -> String {
+        match self {
+            Self::Japan(provider) => provider.user_suite(user_id),
+            Self::Global(provider) => provider.user_suite(user_id),
+        }
+    }
 }

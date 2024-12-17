@@ -1,3 +1,6 @@
+use hmac::Hmac;
+use sha2::Sha256;
+
 use crate::{
     api::url::{japan_provider::JapanUrlProvider, server_provider::ServerUrlProvider, UrlProvider},
     models::enums::{Platform, Server},
@@ -17,6 +20,7 @@ const DEFAULT_DECRYPT: bool = true;
 /// Configuration for encryption and decryption.
 pub struct FetchConfig<P: UrlProvider> {
     pub aes_config: AesConfig,
+    pub jwt_key: Hmac<Sha256>,
     pub concurrency: usize,
     pub recursive: bool,
     pub quiet: bool,
@@ -52,6 +56,7 @@ impl<P: UrlProvider> FetchConfig<P> {
     pub fn new_with_provider(version: String, hash: String, url_provider: P) -> Self {
         Self {
             aes_config: DEFAULT_SERVER.get_aes_config(),
+            jwt_key: DEFAULT_SERVER.get_jwt_key(),
             url_provider,
             concurrency: available_parallelism(),
             recursive: DEFAULT_RECURSIVE,
@@ -61,7 +66,7 @@ impl<P: UrlProvider> FetchConfig<P> {
             platform: DEFAULT_PLATFORM,
             retry: DEFAULT_RETRY,
             decrypt: DEFAULT_DECRYPT,
-            pretty_json: false
+            pretty_json: false,
         }
     }
 }
@@ -82,6 +87,18 @@ impl FetchConfigBuilder<ServerUrlProvider> {
     }
 }
 
+impl FetchConfigBuilder<ServerUrlProvider> {
+    /// Sets the FetchConfig to use the
+    ///  configurations required by the provided server.
+    ///
+    /// By default this will be the Japan server.
+    pub fn server(self, server: Server) -> FetchConfigBuilder<ServerUrlProvider> {
+        self.aes(server.get_aes_config())
+            .jwt(server.get_jwt_key())
+            .url_provider(server.get_url_provider())
+    }
+}
+
 impl<P: UrlProvider> FetchConfigBuilder<P> {
     /// Sets the aes configuration.
     ///
@@ -91,11 +108,12 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
         self
     }
 
-    /// Sets the FetchConfig to use the configurations required by the provided server.
+    /// Sets the JSON Web Token key that will be used for some requests.
     ///
-    /// By default this will be the Japan server.
-    pub fn server(self, server: Server) -> Self {
-        self.aes(server.get_aes_config())
+    /// By default, this will use the JWT key for the Japan server.
+    pub fn jwt(mut self, jwt_key: Hmac<Sha256>) -> Self {
+        self.config.jwt_key = jwt_key;
+        self
     }
 
     /// Sets the maximum number of tokio threads that can be used.
@@ -175,7 +193,7 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
 
     /// When performing operations with JSON files, whether to
     /// format those files in a more readable format.
-    /// 
+    ///
     /// This will slightly increase the size of any output .json files
     /// due to extra spaces and newlines.
     pub fn pretty_json(mut self, pretty: bool) -> Self {

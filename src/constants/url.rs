@@ -17,6 +17,8 @@ pub mod sekai {
         pub const USER: &str = "/api/user";
         pub const USER_AUTH: &str = "/api/user";
         pub const SYSTEM: &str = "/api/system";
+        pub const INHERIT: &str = "/api/inherit/user";
+        pub const USER_SUITE: &str = "/api/suite/user";
     }
 
     pub mod assetbundle {

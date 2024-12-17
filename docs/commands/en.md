@@ -57,6 +57,20 @@ Downloads suitemaster files.
   twintail fetch suite --encrypt --version <app_version> --hash <app_hash> suite_encrypted
   ```
 
+## ``fetch save``
+Downloads a player's save data from the official servers.
+
+### Examples
+- Download a player's save data from the Japan server
+  ```
+  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+  ```
+  - Where ``<transfer_id>`` and ``<transfer_password>`` are the values the game gave you when you began the OS transfer.
+- Download a player's save data from the Global server and save it in a folder called ``saves``.
+  ```
+  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password> --server global
+  ```
+
 ## ``encrypt ab``
 Encrypts Unity assetbundle files for use with Project SEKAI.
 

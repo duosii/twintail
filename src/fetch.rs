@@ -16,7 +16,7 @@ use crate::{
     constants::{color, strings},
     crypto::assetbundle,
     error::CommandError,
-    models::api::{Assetbundle, AssetbundleInfo},
+    models::api::{Assetbundle, AssetbundleInfo, UserInherit},
     utils::{
         fs::{extract_suitemaster_file, write_file},
         progress::ProgressBar,
@@ -45,6 +45,7 @@ impl<P: UrlProvider> Fetcher<P> {
             config.hash.clone(),
             config.platform,
             config.aes_config.clone(),
+            config.jwt_key.clone(),
             config.url_provider.clone(),
         )
         .await?;
@@ -181,7 +182,13 @@ impl<P: UrlProvider> Fetcher<P> {
             stream::iter(&suitemaster_split_paths)
                 .map(|api_path| async {
                     let retry_result = Retry::spawn(retry_strat.clone(), || {
-                        download_suitemasterfile(&self.client, api_path, out_path, do_decrypt, pretty_json)
+                        download_suitemasterfile(
+                            &self.client,
+                            api_path,
+                            out_path,
+                            do_decrypt,
+                            pretty_json,
+                        )
                     })
                     .await;
                     if let Some(progress) = &download_progress {
@@ -391,6 +398,124 @@ impl<P: UrlProvider> Fetcher<P> {
 
         Ok(success_count)
     }
+
+    /// Performs a request to get a user's account inherit details.
+    ///
+    /// If execute is true, the account will be inherited and the returned UserInherit will contain an authentication credential JWT.
+    ///
+    /// This credential is used for performing authenticated requests.
+    pub async fn get_user_inherit(
+        &self,
+        inherit_id: &str,
+        password: &str,
+        execute: bool,
+    ) -> Result<UserInherit, Error> {
+        let show_progress = !self.config.quiet;
+
+        // create assetbundle spinner
+        let spinner = if show_progress {
+            println!(
+                "{}{}{}",
+                color::TEXT_VARIANT.render_fg(),
+                color::TEXT.render_fg(),
+                strings::command::INHERIT_GETTING_USER_DATA,
+            );
+            Some(ProgressBar::spinner())
+        } else {
+            None
+        };
+
+        let user_inherit = self
+            .client
+            .get_user_inherit(inherit_id, password, execute)
+            .await?;
+
+        if let Some(spinner) = spinner {
+            spinner.finish_and_clear();
+        }
+
+        Ok(user_inherit)
+    }
+
+    /// Gets a user's save data, provided with their user_id and login credential.
+    ///
+    /// If successful, a PathBuf representing where the save data was written will be returned.
+    pub async fn write_user_save_data(
+        &mut self,
+        user_id: usize,
+        credential: String,
+        out_dir: impl AsRef<Path>,
+    ) -> Result<PathBuf, Error> {
+        let operation_start = Instant::now();
+        let show_progress = !self.config.quiet;
+
+        // create assetbundle spinner
+        let spinner = if show_progress {
+            println!(
+                "{}{}{}",
+                color::TEXT_VARIANT.render_fg(),
+                color::TEXT.render_fg(),
+                strings::command::INHERIT_LOGGING_IN,
+            );
+            Some(ProgressBar::spinner())
+        } else {
+            None
+        };
+
+        self.client.user_login(user_id, credential).await?;
+
+        if let Some(spinner) = spinner {
+            spinner.finish_and_clear();
+        }
+
+        let spinner = if show_progress {
+            println!(
+                "{}{}{}",
+                color::TEXT_VARIANT.render_fg(),
+                color::TEXT.render_fg(),
+                strings::command::INHERIT_GETTING_SAVE_DATA,
+            );
+            Some(ProgressBar::spinner())
+        } else {
+            None
+        };
+
+        // convert retrieve save data & convert to json
+        let save_data = self.client.get_user_suite(user_id).await?;
+        let json_save_data = if self.config.pretty_json {
+            serde_json::to_vec_pretty(&save_data)
+        } else {
+            serde_json::to_vec(&save_data)
+        }?;
+
+        // save the save data
+        let out_path = out_dir.as_ref().join(format!("{}.json", user_id));
+        write_file(&out_path, &json_save_data).await?;
+
+        if let Some(spinner) = spinner {
+            spinner.finish_and_clear();
+        }
+
+        if show_progress {
+            println!();
+            println!(
+                "✅ {}Save data written to '{}' in {:?}. {}",
+                color::SUCCESS.render_fg(),
+                out_path.to_string_lossy(),
+                Instant::now().duration_since(operation_start),
+                color::TEXT.render_fg()
+            );
+            println!();
+            println!(
+                "⚠️ {}{}{}",
+                color::WARNING.render_fg(),
+                strings::command::INHERIT_FINISH_WARNING,
+                color::TEXT.render_fg()
+            );
+        }
+
+        Ok(out_path)
+    }
 }
 
 /// Downloads a suitemasterfile at the provided path using the given SekaiClient.
@@ -398,7 +523,7 @@ impl<P: UrlProvider> Fetcher<P> {
 /// This will unpack each suitemasterfile and save the contents to the provided out_path.
 ///
 /// If decrypt is false, the suitemaster file will not be unpacked.
-/// 
+///
 /// If pretty is true, the extacted suitemaster files will be saved in a more readable format.
 async fn download_suitemasterfile<P: UrlProvider>(
     client: &SekaiClient<P>,

@@ -57,6 +57,20 @@ Suitemasterファイルをダウンロードします。
   twintail fetch suite --encrypt --version <app_version> --hash <app_hash> suite_encrypted
   ```
 
+## ``fetch save``
+公式サーバーからプレイヤーのセーブデータをダウンロードします。
+
+### 例
+- 日本サーバーからプレイヤーのセーブデータをダウンロードします。
+  ```
+  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+  ```
+  - ``<transfer_id>``と``<transfer_password>``は、引継ぎ開始時にゲームから提供された値です。
+- グローバルサーバーからプレイヤーのセーブデータをダウンロードし、``saves``というフォルダに保存します。
+  ```
+  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password> --server global
+  ```
+
 ## ``encrypt ab``
 Project SEKAIで使用するUnityアセットバンドルファイルを暗号化します。
 

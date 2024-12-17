@@ -39,7 +39,7 @@ You can use twintail's ``fetch ab`` command to download these assets.
 ```
 twintail fetch ab --version <app_version> --hash <app_hash> assetbundles
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you aquired [above](#app-version-and-app-hash).
+- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will download all assets for the most recent asset version to a folder named ``assetbundles``
 - If you want the assets to go to a different location, replace ``assetbundles`` with the path to your desired location.
 
@@ -52,7 +52,7 @@ You can use twintail's ``fetch suite`` command to download these files.
 ```
 twintail fetch suite --version <app_version> --hash <app_hash> suitemaster_files
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you aquired [above](#app-version-and-app-hash).
+- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will download all suitemaster files for the most recent asset version to a folder named ``suitemaster_files``
 - If you want the files to go to a different location, replace ``suitemaster_files`` with the path to your desired location.
 
@@ -65,10 +65,44 @@ You can use twintail's ``fetch ab-info`` command to download this file.
 ```
 twintail fetch ab-info --version <app_version> --hash <app_hash>
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you aquired [above](#app-version-and-app-hash).
+- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will create a new ``.json`` file in the location you ran the command with the name of the latest asset version (i.e. ``4.1.0.10.json``)
 
 For more in-depth usage details, you can go to the [commands reference](../commands/en.md#fetch-ab-info) for this command.
+
+### Save Data
+Save data contains information like what characters, costumes, and songs a player owns among many other things.
+
+In order to use this command, you will first have to start an account transfer process.
+1. Login to the game. Once logged in, tap the icon with the three lines in the top right corner of the screen.
+2. Locate and tap the button that has an icon that features two phones. "ACCOUNT TRANSFER".
+3. A window will pop-up. Tap the big button to the right. "Transfer to different OS".
+4. In the password field, enter a secure password.
+   - From here on, this password will be referred to as ``transfer_password``
+5. If your password is between 8-16 characters, the green button in the bottom right of the pop-up will be tappable.
+6. Tap this green button. "Password Settings".
+7. A new window will pop-up. Note the information that it gives you, the Transfer ID and Password.
+   - From here on, this Transfer ID will be referred to as ``transfer_id``
+
+You can use twintail's ``fetch save`` command to download this file.
+```
+twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+```
+- Replace ``<transfer_id>`` and ``<transfer_password>`` with the values the game gave you directly above.
+- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [before](#app-version-and-app-hash).
+
+After completing the save download, you will temporarily not be able to login to your account from the device you had it on originally.
+
+To fix this, you need to transfer your account back to the original device by using the same ``transfer_id`` and ``transfer_password`` values you used above.
+1. Open the game and stay on the title screen.
+2. Tap the icon with the three lines in the top right corner of the screen
+3. In the window that opened, tap the button in the top left which has an icon with two phones.
+4. A new window will open. Tap the big button on the right. "Transfer to different OS".
+5. In the first text field, enter your ``transfer_id``.
+6. In the second text field, enter your ``transfer_password``.
+7. Tap the green button in the bottom right.
+8. A new pop-up will open. Tap the green button in the bottom right again.
+9. You should be able to login to the game now.
 
 ## Encrypting and Decrypting Assets
 By default, all files that twintail downloads will be decrypted.

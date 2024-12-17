@@ -104,3 +104,35 @@ pub struct SystemInfo {
     pub maintenance_status: String,
     pub app_versions: Vec<AppVersion>,
 }
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInheritGamedata {
+    pub user_id: usize,
+    pub name: String,
+    pub deck: usize,
+    pub rank: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInheritDeviceTransferRestrict {
+    pub is_restrict_device_transfer: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInherit {
+    pub after_user_gamedata: UserInheritGamedata,
+    pub user_event_device_transfer_restrict: UserInheritDeviceTransferRestrict,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub credential: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInheritJWT {
+    pub inherit_id: String,
+    pub password: String,
+}

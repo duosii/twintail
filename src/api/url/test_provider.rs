@@ -77,4 +77,18 @@ impl UrlProvider for TestUrlProvider {
     fn suitemasterfile(&self, file_path: &str) -> String {
         format!("{}{}/{}", self.host, sekai::game::API, file_path)
     }
+
+    fn inherit(&self, inherit_id: &str, execute: bool) -> String {
+        format!(
+            "{}{}/{}?isExecuteInherit={}",
+            self.host,
+            sekai::game::INHERIT,
+            inherit_id,
+            if execute { "True" } else { "False" }
+        )
+    }
+
+    fn user_suite(&self, user_id: usize) -> String {
+        format!("{}{}/{}", self.host, sekai::game::USER_SUITE, user_id)
+    }
 }

@@ -1,7 +1,16 @@
 use clap::ValueEnum;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
-use crate::{config::AesConfig, constants::crypto};
+use crate::{
+    api::url::{
+        global_provider::GlobalUrlProvider, japan_provider::JapanUrlProvider,
+        server_provider::ServerUrlProvider,
+    },
+    config::AesConfig,
+    constants::crypto,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
 pub enum Platform {
@@ -40,6 +49,7 @@ pub enum Server {
 }
 
 impl Server {
+    /// Returns the AesConfig for a server.
     pub fn get_aes_config(&self) -> AesConfig {
         match self {
             Self::Japan => AesConfig {
@@ -50,6 +60,27 @@ impl Server {
                 key: crypto::GLOBAL_KEY.to_vec(),
                 iv: crypto::GLOBAL_IV.to_vec(),
             },
+        }
+    }
+
+    /// Returns the JSON Web Token HMAC SHA-256 key for a server.
+    pub fn get_jwt_key(&self) -> Hmac<Sha256> {
+        match self {
+            Self::Japan => Hmac::new_from_slice(
+                b"dRmS5U3jP9XJDFzoI7eeXhzT826v2qJRO9n14h9JR1phTL6so3v7YBiODRdrrfMOl3Y8FOI3pS5UTYC5",
+            )
+            .unwrap(),
+            Self::Global => Hmac::new_from_slice(
+                b"uYf0cGqbgapejhc8bhba6G1cf5BBznOZeDz9NyFWZOgiiYsfUVNLT3wRUpCH6iDe1umsreAYuo35s8TP",
+            )
+            .unwrap(),
+        }
+    }
+
+    pub fn get_url_provider(&self) -> ServerUrlProvider {
+        match self {
+            Self::Japan => ServerUrlProvider::Japan(JapanUrlProvider::default()),
+            Self::Global => ServerUrlProvider::Global(GlobalUrlProvider::default()),
         }
     }
 }

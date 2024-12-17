@@ -1,19 +1,25 @@
 use super::{headers::Headers, url::UrlProvider};
 use crate::{
     config::AesConfig,
-    constants::{header, strings},
+    constants::{
+        header::{self, name::INHERIT_TOKEN},
+        strings,
+    },
     crypto::aes_msgpack,
     error::ApiError,
     models::{
         api::{
             AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse,
-            UserRequest, UserSignup,
+            UserInherit, UserInheritJWT, UserRequest, UserSignup,
         },
         enums::Platform,
     },
 };
-use reqwest::{Client, StatusCode};
+use hmac::Hmac;
+use jwt::SignWithKey;
+use reqwest::{header::HeaderValue, Client, StatusCode};
 use serde_json::Value;
+use sha2::Sha256;
 
 /// A simple struct that stores information about the game's app.
 pub struct SekaiApp {
@@ -37,6 +43,7 @@ pub struct SekaiClient<T: UrlProvider> {
     headers: Headers,
     client: Client,
     aes_config: AesConfig,
+    jwt_key: Hmac<Sha256>,
     pub url_provider: T,
     pub app: SekaiApp,
 }
@@ -48,6 +55,7 @@ impl<T: UrlProvider> SekaiClient<T> {
         hash: String,
         platform: Platform,
         aes_config: AesConfig,
+        jwt_key: Hmac<Sha256>,
         url_provider: T,
     ) -> Result<Self, ApiError> {
         let headers = Headers::builder()?
@@ -60,6 +68,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             headers,
             client: Client::new(),
             aes_config,
+            jwt_key,
             url_provider,
             app: SekaiApp::new(version, hash, platform),
         };
@@ -211,10 +220,19 @@ impl<T: UrlProvider> SekaiClient<T> {
                 // insert session token
                 self.headers
                     .insert_str(header::name::SESSION_TOKEN, &auth_response.session_token)?;
+                self.headers
+                    .insert_str(header::name::ASSET_VERSION, &auth_response.asset_version)?;
+                self.headers
+                    .insert_str(header::name::DATA_VERSION, &auth_response.data_version)?;
 
                 Ok(auth_response)
             }
-            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
+            Err(err) => match err.status() {
+                Some(StatusCode::NOT_FOUND) => Err(ApiError::InvalidRequest(
+                    strings::api::error::NOT_FOUND_USER_AUTH.into(),
+                )),
+                _ => Err(ApiError::InvalidRequest(err.to_string()))
+            },
         }
     }
 
@@ -348,6 +366,69 @@ impl<T: UrlProvider> SekaiClient<T> {
         let bytes = self.get_suitemasterfile(file_path).await?;
         Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
     }
+
+    /// Performs a request to get a user's account inherit details.
+    ///
+    /// If execute is true, the account will be inherited and the returned UserInherit will contain an authentication credential JWT.
+    ///
+    /// This credential is used for performing authenticated requests.
+    pub async fn get_user_inherit(
+        &self,
+        inherit_id: &str,
+        password: &str,
+        execute: bool,
+    ) -> Result<UserInherit, ApiError> {
+        let mut headers = self.headers.get_map();
+
+        // create X-Inherit-Id-Verify-Token header
+        let jwt_payload = UserInheritJWT {
+            inherit_id: inherit_id.into(),
+            password: password.into(),
+        };
+        let token_str = jwt_payload.sign_with_key(&self.jwt_key)?;
+        headers.append(INHERIT_TOKEN, HeaderValue::from_str(&token_str)?);
+
+        let request = self
+            .client
+            .post(self.url_provider.inherit(inherit_id, execute))
+            .headers(headers);
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                let bytes = response.bytes().await?;
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
+            }
+            Err(err) => match err.status() {
+                Some(StatusCode::NOT_FOUND) | Some(StatusCode::FORBIDDEN) => {
+                    Err(ApiError::InvalidRequest(
+                        strings::api::error::INVALID_INHERIT_CREDENTIALS.into(),
+                    ))
+                }
+                _ => Err(ApiError::InvalidRequest(err.to_string())),
+            },
+        }
+    }
+
+    /// Gets a user's suite data as a [`serde_json::Value`].
+    ///
+    /// This is an authenticated request, and therefore requires [`Self::user_login`]
+    /// to have been previously successfully called.
+    pub async fn get_user_suite(&self, user_id: usize) -> Result<Value, ApiError> {
+        let request = self
+            .client
+            .get(self.url_provider.user_suite(user_id))
+            .headers(self.headers.get_map());
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                let bytes = response.bytes().await?;
+                Ok(aes_msgpack::from_slice(&bytes, &self.aes_config)?)
+            }
+            Err(err) => Err(ApiError::InvalidRequest(err.to_string())),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -363,12 +444,17 @@ mod tests {
         Server::Japan.get_aes_config()
     }
 
+    fn get_jwt_key() -> Hmac<Sha256> {
+        Server::Japan.get_jwt_key()
+    }
+
     async fn get_client(server_url: String) -> SekaiClient<TestUrlProvider> {
         SekaiClient::new_with_url_provider(
             "3.9".to_string(),
             "393939".to_string(),
             Platform::Android,
             get_aes_config(),
+            get_jwt_key(),
             TestUrlProvider::new(server_url),
         )
         .await
@@ -386,7 +472,8 @@ mod tests {
             .await;
 
         // suitemaster file
-        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
+        let encrypted_suitemaster_file =
+            aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
         server
             .mock("GET", "/api/suitemasterfile/1.0.0/test_file")
             .with_status(200)
@@ -449,13 +536,16 @@ mod tests {
         let server = get_server().await;
         let client = get_client(server.url()).await;
 
-        let response = client.get_suitemasterfile(SUITEMASTER_FILE_PATH).await.unwrap();
+        let response = client
+            .get_suitemasterfile(SUITEMASTER_FILE_PATH)
+            .await
+            .unwrap();
 
         // compare
-        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
+        let encrypted_suitemaster_file =
+            aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &get_aes_config()).unwrap();
         assert_eq!(
-            response,
-            encrypted_suitemaster_file,
+            response, encrypted_suitemaster_file,
             "response from server and computed value should be the same"
         );
     }
@@ -465,18 +555,20 @@ mod tests {
         let server = get_server().await;
         let client = get_client(server.url()).await;
 
-        let response = client.get_suitemasterfile_as_value(SUITEMASTER_FILE_PATH)
+        let response = client
+            .get_suitemasterfile_as_value(SUITEMASTER_FILE_PATH)
             .await
             .unwrap();
 
         // get value to compare response with
         let aes_config = get_aes_config();
-        let encrypted_suitemaster_file = aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &aes_config).unwrap();
-        let decrypted_suitemaster_file: Value = aes_msgpack::from_slice(&encrypted_suitemaster_file, &aes_config).unwrap();
+        let encrypted_suitemaster_file =
+            aes_msgpack::into_vec(&SUITEMASTER_FILE_CONTENT.as_bytes(), &aes_config).unwrap();
+        let decrypted_suitemaster_file: Value =
+            aes_msgpack::from_slice(&encrypted_suitemaster_file, &aes_config).unwrap();
 
         assert_eq!(
-            response, 
-            decrypted_suitemaster_file,
+            response, decrypted_suitemaster_file,
             "response from server and computed value should be the same"
         )
     }

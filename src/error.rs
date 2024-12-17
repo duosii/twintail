@@ -54,6 +54,9 @@ pub enum ApiError {
     #[error("invalid header value: {0}")]
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 
+    #[error("jwt error: {0}")]
+    Jwt(#[from] jwt::Error),
+
     #[error("invalid request: {0}")]
     InvalidRequest(String),
 

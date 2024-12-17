@@ -15,6 +15,9 @@ pub mod name {
     pub const SET_COOKIE: &str = "set-cookie";
     pub const COOKIE: &str = "cookie";
     pub const SESSION_TOKEN: &str = "x-session-token";
+    pub const INHERIT_TOKEN: &str = "x-inherit-id-verify-token";
+    pub const DATA_VERSION: &str = "x-data-version";
+    pub const ASSET_VERSION: &str = "x-asset-version";
 }
 
 // header values
