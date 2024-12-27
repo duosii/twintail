@@ -116,7 +116,7 @@ pub fn deserialize_files<D: DeserializeOwned + std::marker::Send>(
             |path| match path.file_stem().and_then(|os_str| os_str.to_str()) {
                 Some(file_stem) => match deserialize_file(&path.clone()) {
                     Ok(value) => Ok((file_stem.into(), value)),
-                    Err(err) => Err(err.into()),
+                    Err(err) => Err(err),
                 },
                 None => Err(CommonError::NotFound(path.to_str().unwrap_or("").into())),
             },

@@ -1,10 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use tokio::{
-    io::{AsyncRead, AsyncSeek, AsyncWrite},
-    time::Instant,
-};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::{
     config::{crypt_config::CryptConfig, AesConfig},

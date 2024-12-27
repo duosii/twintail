@@ -10,7 +10,7 @@ As of the last time this guide was updated, these were the latest app hashes.
 | Server | Version | Hash |
 | ------ | ------- | ---- |
 | Japan  | ``4.1.1`` | ``41fd71f2-f715-bc10-5852-0a9d8542f760``
-| Global | ``3.1.5`` | ``fb23ab54-5371-45d4-abf3-c5531bc58b01``
+| Global | ``3.2.0`` | ``1380836d-de9e-49a8-afe5-c52ba589c8c9``
 
 ### Getting the most recent app version and hash
 If the values in the table above are outdated, you can get the latest ones using twintail's ``app-info`` command.
