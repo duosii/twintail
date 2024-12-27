@@ -1,9 +1,12 @@
 use clap::Args;
+use tokio::time::Instant;
 use twintail::{
     config::{crypt_config::CryptConfig, OptionalBuilder},
     enums::Server,
     Encrypter,
 };
+
+use crate::constants::{color, strings};
 
 #[derive(Debug, Args)]
 pub struct EncryptSuiteArgs {
@@ -35,6 +38,8 @@ pub struct EncryptSuiteArgs {
 }
 
 pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), twintail::Error> {
+    let encrypt_start = Instant::now();
+
     let config = CryptConfig::builder()
         .recursive(args.recursive)
         .server(args.server)
@@ -49,6 +54,16 @@ pub async fn encrypt_suite(args: EncryptSuiteArgs) -> Result<(), twintail::Error
     encrypter
         .encrypt_suite_path(args.in_path, args.out_path, args.split)
         .await?;
+
+    if !args.quiet {
+        println!(
+            "{}Successfully {} suite master files in {:?}.{}",
+            color::SUCCESS.render_fg(),
+            strings::crypto::encrypt::PROCESSED,
+            Instant::now().duration_since(encrypt_start),
+            color::TEXT.render_fg(),
+        );
+    }
 
     Ok(())
 }

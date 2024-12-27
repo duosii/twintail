@@ -35,7 +35,11 @@ pub enum CommonError {
 
     #[error("not found: {0}")]
     NotFound(String),
+
+    #[error("multiple errors: {0}")]
+    Multi(String),
 }
+multi_error!(CommonError);
 
 #[derive(Error, Debug)]
 pub enum ApiError {

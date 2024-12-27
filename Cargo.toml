@@ -1,6 +1,6 @@
 [package]
 name = "twintail"
-version = "1.1.7"
+version = "1.1.8"
 edition = "2021"
 
 [lib]
@@ -10,10 +10,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "twintail"
 path = "src/main.rs"
-required-features = ["cli"]
-
-[features]
-cli = []
 
 [profile.release]
 codegen-units = 1

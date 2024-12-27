@@ -4,7 +4,7 @@ use reqwest::header::{HeaderMap, HeaderValue, InvalidHeaderValue};
 pub struct Headers(pub HeaderMap<HeaderValue>);
 
 impl Headers {
-    /// Get a new SekaiHeaders obeject with some default headers.
+    /// Get a new SekaiHeaders object with some default headers.
     fn new() -> Result<Self, InvalidHeaderValue> {
         let mut headers = Self::default();
 

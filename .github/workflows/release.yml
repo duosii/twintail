@@ -38,7 +38,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release -F cli
+          args: --release
 
       - name: Rename binary
         shell: bash

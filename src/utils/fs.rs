@@ -1,3 +1,4 @@
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::{
@@ -64,9 +65,13 @@ pub async fn write_file(out_path: impl AsRef<Path>, data: &[u8]) -> Result<(), t
 
 /// Extracts the inner fields of a suitemaster file and writes them
 /// to the provided out_path as .json files.
-/// 
+///
 /// If pretty is true, the extracted fields will be JSON prettified.
-pub async fn extract_suitemaster_file(file: Value, out_path: &Path, pretty: bool) -> Result<(), CommonError> {
+pub async fn extract_suitemaster_file(
+    file: Value,
+    out_path: &Path,
+    pretty: bool,
+) -> Result<(), CommonError> {
     let obj = match file.as_object() {
         Some(obj) => Ok(obj),
         None => Err(CommonError::NotFound(
@@ -87,13 +92,55 @@ pub async fn extract_suitemaster_file(file: Value, out_path: &Path, pretty: bool
     Ok(())
 }
 
-/// Deserializes a .json file into a serde_json Value.
+/// Deserializes a .json file located at the provided path
+/// into a type that implements DeserializeOwned.
 ///
 /// If successful returns a tuple containing the file's stem and deserialized [`serde_json::Value`].
 pub fn deserialize_file<D: DeserializeOwned>(path: &PathBuf) -> Result<D, CommonError> {
     let contents = std::fs::read_to_string(path)?;
     let deserialized = serde_json::from_str(&contents)?;
     Ok(deserialized)
+}
+
+/// Deserializes multiple .json files located at the provided paths
+/// into a type that implements DeserializeOwned.
+///
+/// If successful, this function returns a tuple where the first value is
+/// the deserialized file's name and the second value is the file's deserialized value.
+pub fn deserialize_files<D: DeserializeOwned + std::marker::Send>(
+    paths: &Vec<PathBuf>,
+) -> Result<Vec<(String, D)>, CommonError> {
+    let deserialize_results: Vec<Result<(String, D), CommonError>> = paths
+        .par_iter()
+        .map(
+            |path| match path.file_stem().and_then(|os_str| os_str.to_str()) {
+                Some(file_stem) => match deserialize_file(&path.clone()) {
+                    Ok(value) => Ok((file_stem.into(), value)),
+                    Err(err) => Err(err.into()),
+                },
+                None => Err(CommonError::NotFound(path.to_str().unwrap_or("").into())),
+            },
+        )
+        .collect();
+
+    // separate errors and DeserializedFiles
+    let mut errors = Vec::new();
+    let mut deserialized_files = Vec::with_capacity(deserialize_results.len());
+
+    for result in deserialize_results {
+        match result {
+            Ok((key, value)) => {
+                deserialized_files.push((key, value));
+            }
+            Err(err) => errors.push(err),
+        }
+    }
+
+    if !errors.is_empty() {
+        return Err(errors.into());
+    }
+
+    Ok(deserialized_files)
 }
 
 #[cfg(test)]

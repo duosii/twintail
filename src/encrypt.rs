@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
     time::Instant,
@@ -14,10 +14,10 @@ use crate::{
         assetbundle::{self, AbCryptArgs},
     },
     enums::CryptOperation,
-    error::{CommandError, Error},
+    error::Error,
     models::serde::ValueF32,
     utils::{
-        fs::{deserialize_file, scan_path, write_file},
+        fs::{deserialize_files, scan_path, write_file},
         progress::ProgressBar,
     },
 };
@@ -75,6 +75,65 @@ impl Encrypter {
         Ok(files_changed)
     }
 
+    pub async fn encrypt_suite_values(
+        &self,
+        values: &[(String, ValueF32)],
+        out_path: impl AsRef<Path>,
+        split: usize,
+    ) -> Result<usize, Error> {
+        let to_serialize_count = values.len();
+
+        // split into chunks and serialize
+        let serialize_progress = if !self.config.quiet {
+            println!(
+                "{}{}{}",
+                color::TEXT_VARIANT.render_fg(),
+                color::TEXT.render_fg(),
+                strings::command::SUITE_SAVING,
+            );
+            Some(ProgressBar::progress(to_serialize_count as u64))
+        } else {
+            None
+        };
+
+        let deserialized_len = values.len();
+        let chunk_size = {
+            let max_chunks = split.clamp(1, deserialized_len);
+            (deserialized_len + max_chunks - 1) / max_chunks
+        };
+
+        let chunks: Vec<Result<Vec<u8>, rmp_serde::encode::Error>> = values
+            .chunks(chunk_size)
+            .par_bridge()
+            .map(|chunk| {
+                if let Some(progress) = &serialize_progress {
+                    progress.inc(1);
+                }
+                match serialize_values(chunk, &self.config.aes_config) {
+                    Ok(bytes) => Ok(bytes),
+                    Err(err) => Err(err),
+                }
+            })
+            .collect();
+
+        if let Some(progress) = &serialize_progress {
+            progress.finish_and_clear();
+        }
+
+        // write to out directory
+        for (n, result) in chunks.into_iter().enumerate() {
+            let bytes = result?;
+            let out_path = out_path.as_ref().join(format!(
+                "{:02}{}",
+                n,
+                strings::command::SUITE_ENCRYPTED_FILE_NAME
+            ));
+            write_file(&out_path, &bytes).await?;
+        }
+
+        Ok(deserialized_len)
+    }
+
     /// Encrypts suitemaster .json files located at ``in_path`` into AES encrypted msgpack files.
     ///
     /// ``split`` determines how many files this data will be encrypted into.
@@ -89,115 +148,42 @@ impl Encrypter {
         out_path: impl AsRef<Path>,
         split: usize,
     ) -> Result<usize, Error> {
-        let show_progress = !self.config.quiet;
-        let encrypt_start = Instant::now();
-
-        // get the paths to files to encrypt
-        let paths = scan_path(in_path.as_ref(), self.config.recursive).await?;
-
         // create decrypt progress bar
-        let deserialize_progress = if show_progress {
+        let deserialize_progress = if !self.config.quiet {
             println!(
-                "{}[1/2] {}{}",
+                "{}{}{}",
                 color::TEXT_VARIANT.render_fg(),
                 color::TEXT.render_fg(),
                 strings::command::SUITE_PROCESSING,
             );
-            Some(ProgressBar::progress(paths.len() as u64))
+            Some(ProgressBar::spinner())
         } else {
             None
         };
 
         // deserialize all paths to [`serde_json::Value`]s.
-        let mut deserialized_files: Vec<DeserializedSuiteFile> = Vec::new();
-        {
-            let deserialize_results: Vec<Result<DeserializedSuiteFile, CommandError>> = 
-                paths.par_iter()
-                    .map(|path| {
-                        match path.file_stem().and_then(|os_str| os_str.to_str()) {
-                            Some(file_stem) => match deserialize_file(&path.clone()) {
-                                Ok(value) => {
-                                    if let Some(progress) = &deserialize_progress {
-                                        progress.inc(1);
-                                    }
-                                    Ok((file_stem.into(), value))
-                                }
-                                Err(err) => Err(err.into()),
-                            },
-                            None => Err(CommandError::FileStem(path.to_str().unwrap_or("").into())),
-                        }
-                    })
-                    .collect();
-
-            // separate errors and DeserializedFiles
-            let mut errors = Vec::new();
-
-            for result in deserialize_results {
-                match result {
-                    Ok(de_file) => deserialized_files.push(de_file),
-                    Err(err) => errors.push(err),
-                }
-            }
-
-            if !errors.is_empty() {
-                return Err(CommandError::from(errors).into());
-            }
-        }
+        let deserialized_files: Vec<(_, ValueF32)> = self.deserialize_suite_path(in_path).await?;
 
         if let Some(progress) = deserialize_progress {
             progress.finish_and_clear();
         }
 
-        // split into chunks and serialize
-        if show_progress {
-            println!(
-                "{}[2/2] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::command::SUITE_SAVING,
-            );
-        }
+        self.encrypt_suite_values(&deserialized_files, out_path, split)
+            .await
+    }
 
-        let deserialized_len = deserialized_files.len();
-        let chunk_size = {
-            let max_chunks = split.clamp(1, deserialized_len);
-            (deserialized_len + max_chunks - 1) / max_chunks
-        };
+    /// Deserializes suite files located at a specific path into [crate::models::serde::ValueF32].
+    /// This function returns a Vec of tuples where the first value is the name of the file (without an extension)
+    /// and the second value is teh deserialized value of the file.
+    pub async fn deserialize_suite_path(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<Vec<(String, ValueF32)>, Error> {
+        // get the paths to files to encrypt
+        let paths = scan_path(path.as_ref(), self.config.recursive).await?;
 
-        let chunks: Vec<Result<Vec<u8>, rmp_serde::encode::Error>> = deserialized_files
-            .chunks(chunk_size)
-            .par_bridge()
-            .map(|chunk| {
-                match serialize_values(chunk, &self.config.aes_config) {
-                    Ok(bytes) => Ok(bytes),
-                    Err(err) => Err(err),
-                }
-            })
-            .collect();
-
-        // write to out directory
-        for (n, result) in chunks.into_iter().enumerate() {
-            let bytes = result?;
-            let out_path = out_path.as_ref().join(format!(
-                "{:02}{}",
-                n,
-                strings::command::SUITE_ENCRYPTED_FILE_NAME
-            ));
-            write_file(&out_path, &bytes).await?;
-        }
-
-        if show_progress {
-            println!(
-                "{}Successfully {} {} files in {:?}.{}",
-                color::SUCCESS.render_fg(),
-                strings::crypto::encrypt::PROCESSED,
-                deserialized_len,
-                Instant::now().duration_since(encrypt_start),
-                color::TEXT.render_fg(),
-            );
-        }
-
-        Ok(deserialized_len)
+        let values = deserialize_files(&paths)?;
+        Ok(values)
     }
 
     /// Encrypts .json bytes into msgpack + AES encrypted bytes.
