@@ -19,12 +19,12 @@ You can download the most recent version from the [releases page](https://github
 
 To build for debugging:
 ```
-cargo run -F cli
+cargo run
 ```
 
 To build for release:
 ```
-cargo run -F cli --release
+cargo run --release
 ```
 
 To run tests:

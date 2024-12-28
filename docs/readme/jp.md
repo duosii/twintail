@@ -19,12 +19,12 @@ twintailは現在、グローバル版と日本版のサーバーに対応して
 
 デバッグ用にビルドする場合：
 ```
-cargo run -F cli
+cargo run
 ```
 
 リリース用にビルドする場合：
 ```
-cargo run -F cli --release
+cargo run --release
 ```
 
 テストを実行する場合：
