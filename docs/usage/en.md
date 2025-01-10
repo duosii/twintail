@@ -9,7 +9,7 @@ Any time the game's app receives an update, these values will change.
 As of the last time this guide was updated, these were the latest app hashes.
 | Server | Version | Hash |
 | ------ | ------- | ---- |
-| Japan  | ``4.1.1`` | ``41fd71f2-f715-bc10-5852-0a9d8542f760``
+| Japan  | ``5.0.0`` | ``746b8607-0e65-489d-b060-a8986ba11b47``
 | Global | ``3.2.0`` | ``1380836d-de9e-49a8-afe5-c52ba589c8c9``
 
 ### Getting the most recent app version and hash
