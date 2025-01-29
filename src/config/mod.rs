@@ -1,4 +1,4 @@
-use crate::{error::CommonError, utils::decode_hex};
+use crate::{error::CommonError, utils::decode_hex, Error};
 
 pub mod crypt_config;
 pub mod download_ab_config;
@@ -16,10 +16,10 @@ impl AesConfig {
     /// The hexadecimal values should be strings.
     /// 
     /// This function may error if parsing the hexadecimal strings fails.
-    pub fn from_hex(hex_key: &str, hex_iv: &str) -> Result<Self, CommonError> {
+    pub fn from_hex(hex_key: &str, hex_iv: &str) -> Result<Self, Error> {
         Ok(Self {
-            key: decode_hex(hex_key)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?,
-            iv: decode_hex(hex_iv)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?
+            key: decode_hex(hex_key).map_err(CommonError::from)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?,
+            iv: decode_hex(hex_iv).map_err(CommonError::from)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?
         })
     }
 }
