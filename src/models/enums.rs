@@ -39,6 +39,7 @@ pub enum AssetbundleCategory {
     StartApp,
     AdditionalVoice,
     Tutorial,
+    MysekaiVoice,
 }
 
 /// Represents a server for the game in a specific region
@@ -53,12 +54,12 @@ impl Server {
     pub fn get_aes_config(&self) -> AesConfig {
         match self {
             Self::Japan => AesConfig {
-                key: crypto::JAPAN_KEY.to_vec(),
-                iv: crypto::JAPAN_IV.to_vec(),
+                key: crypto::JAPAN_KEY.clone(),
+                iv: crypto::JAPAN_IV.clone(),
             },
             Self::Global => AesConfig {
-                key: crypto::GLOBAL_KEY.to_vec(),
-                iv: crypto::GLOBAL_IV.to_vec(),
+                key: crypto::GLOBAL_KEY.clone(),
+                iv: crypto::GLOBAL_IV.clone(),
             },
         }
     }

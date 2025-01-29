@@ -1,4 +1,4 @@
-use crate::utils::decode_hex;
+use crate::{error::CommonError, utils::decode_hex};
 
 pub mod crypt_config;
 pub mod download_ab_config;
@@ -6,8 +6,8 @@ pub mod fetch_config;
 
 #[derive(Clone)]
 pub struct AesConfig {
-    pub key: Vec<u8>,
-    pub iv: Vec<u8>,
+    pub key: [u8; 16],
+    pub iv: [u8; 16],
 }
 
 impl AesConfig {
@@ -16,10 +16,10 @@ impl AesConfig {
     /// The hexadecimal values should be strings.
     /// 
     /// This function may error if parsing the hexadecimal strings fails.
-    pub fn from_hex(hex_key: &str, hex_iv: &str) -> Result<Self, std::num::ParseIntError> {
+    pub fn from_hex(hex_key: &str, hex_iv: &str) -> Result<Self, CommonError> {
         Ok(Self {
-            key: decode_hex(hex_key)?,
-            iv: decode_hex(hex_iv)?
+            key: decode_hex(hex_key)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?,
+            iv: decode_hex(hex_iv)?.try_into().map_err(|_| CommonError::InvalidKeyLength())?
         })
     }
 }

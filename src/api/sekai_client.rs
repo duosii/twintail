@@ -231,7 +231,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 Some(StatusCode::NOT_FOUND) => Err(ApiError::InvalidRequest(
                     strings::api::error::NOT_FOUND_USER_AUTH.into(),
                 )),
-                _ => Err(ApiError::InvalidRequest(err.to_string()))
+                _ => Err(ApiError::InvalidRequest(err.to_string())),
             },
         }
     }

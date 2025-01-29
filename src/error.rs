@@ -33,6 +33,12 @@ pub enum CommonError {
     #[error("serde json error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
+    #[error("error when parsing int: {0}")]
+    ParseInt(#[from] std::num::ParseIntError),
+
+    #[error("invalid key length: must be 16 bytes long")]
+    InvalidKeyLength(),
+
     #[error("not found: {0}")]
     NotFound(String),
 
@@ -180,5 +186,3 @@ pub enum Error {
     #[error("join error: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
-
-// Allow multiple errors to be joined together for CommonError

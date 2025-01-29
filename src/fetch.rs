@@ -592,7 +592,12 @@ async fn download_bundle<P: UrlProvider>(
 
     // decrypt if desired
     if decrypt {
-        assetbundle::decrypt_in_place(&mut ab_data).await?;
+        // if the asset bundle wasn't encrypted, just ignore the error since it's already decrypted.
+        match assetbundle::decrypt_in_place(&mut ab_data).await {
+            Ok(_) => Ok(()),
+            Err(crate::error::AssetbundleError::NotEncrypted) => Ok(()),
+            Err(err) => Err(err),
+        }?;
     }
 
     // write file
