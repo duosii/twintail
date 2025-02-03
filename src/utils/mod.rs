@@ -23,3 +23,14 @@ pub fn decode_hex(hex_str: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
         .map(|num| u8::from_str_radix(&hex_str[num..num + 2], 16))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_utils_decode_hex() {
+        let decoded = decode_hex("6732666343305a637a4e394d544a3631").unwrap();
+        assert_eq!(decoded, vec![103, 50, 102, 99, 67, 48, 90, 99, 122, 78, 57, 77, 84, 74, 54, 49])
+    }
+}
