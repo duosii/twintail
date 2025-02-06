@@ -183,12 +183,15 @@ impl Encrypter {
         Ok(values)
     }
 
-    /// Encrypts a a [`crate::models::serde::ValueF32`] into msgpack + AES encrypted bytes.
+    /// Encrypts any value that implements [`serde::Serialize`] into msgpack + AES encrypted bytes.
     ///
-    /// The ValueF32 will be AES encrypted according to this encryptor's AES config.
+    /// The value will be AES encrypted according to this encryptor's AES config.
     ///
     /// This function will return a Vec of bytes containing the encrypted representation of the provided ``value``
-    pub fn encrypt_value_aes_msgpack(&self, value: &ValueF32) -> Result<Vec<u8>, Error> {
+    pub fn encrypt_aes_msgpack<S>(&self, value: &S) -> Result<Vec<u8>, Error>
+    where
+        S: serde::Serialize,
+    {
         let encrypted_bytes = aes_msgpack::into_vec(&value, &self.config.aes_config)?;
         Ok(encrypted_bytes)
     }
@@ -202,7 +205,7 @@ impl Encrypter {
     /// This function will return a Vec of bytes containing the encrypted representation of the provided ``json_bytes``
     pub fn encrypt_json_bytes_aes_msgpack(&self, json_bytes: &[u8]) -> Result<Vec<u8>, Error> {
         let bytes_deserialized: ValueF32 = serde_json::from_slice(json_bytes)?;
-        self.encrypt_value_aes_msgpack(&bytes_deserialized)
+        self.encrypt_aes_msgpack(&bytes_deserialized)
     }
 
     /// Encrypts a .json file at the provided ``in_path`` into a msgpack + AES encrypted value.
