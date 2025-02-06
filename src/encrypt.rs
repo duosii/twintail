@@ -183,17 +183,26 @@ impl Encrypter {
         Ok(values)
     }
 
-    /// Encrypts .json bytes into msgpack + AES encrypted bytes.
+    /// Encrypts a a [`crate::models::serde::ValueF32`] into msgpack + AES encrypted bytes.
     ///
-    /// The .json file at ``in_path`` will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
+    /// The ValueF32 will be AES encrypted according to this encryptor's AES config.
+    ///
+    /// This function will return a Vec of bytes containing the encrypted representation of the provided ``value``
+    pub fn encrypt_value_aes_msgpack(&self, value: &ValueF32) -> Result<Vec<u8>, Error> {
+        let encrypted_bytes = aes_msgpack::into_vec(&value, &self.config.aes_config)?;
+        Ok(encrypted_bytes)
+    }
+
+    /// Encrypts bytes into msgpack + AES encrypted bytes.
+    ///
+    /// The bytes will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
     ///
     /// The file will be AES encrypted according to this encryptor's AES config.
     ///
     /// This function will return a Vec of bytes containing the encrypted representation of the provided ``json_bytes``
-    pub async fn encrypt_json_bytes(&self, json_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn encrypt_json_bytes_aes_msgpack(&self, json_bytes: &[u8]) -> Result<Vec<u8>, Error> {
         let bytes_deserialized: ValueF32 = serde_json::from_slice(json_bytes)?;
-        let encrypted = aes_msgpack::into_vec(&bytes_deserialized, &self.config.aes_config)?;
-        Ok(encrypted)
+        self.encrypt_value_aes_msgpack(&bytes_deserialized)
     }
 
     /// Encrypts a .json file at the provided ``in_path`` into a msgpack + AES encrypted value.
@@ -201,13 +210,13 @@ impl Encrypter {
     /// The .json file at ``in_path`` will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
     ///
     /// The file will be AES encrypted according to this encryptor's AES config.
-    pub async fn encrypt_json_file(
+    pub async fn encrypt_file_aes_msgpack(
         &self,
         in_path: impl AsRef<Path>,
         out_path: impl AsRef<Path>,
     ) -> Result<(), Error> {
         let file_string = tokio::fs::read_to_string(in_path.as_ref()).await?;
-        let encrypted_bytes = self.encrypt_json_bytes(file_string.as_bytes()).await?;
+        let encrypted_bytes = self.encrypt_json_bytes_aes_msgpack(file_string.as_bytes())?;
         write_file(out_path, &encrypted_bytes).await?;
         Ok(())
     }
@@ -247,7 +256,7 @@ mod tests {
         .as_bytes();
 
         let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).build());
-        encrypter.encrypt_json_bytes(json_bytes).await?;
+        encrypter.encrypt_json_bytes_aes_msgpack(json_bytes)?;
 
         Ok(())
     }
@@ -275,7 +284,7 @@ mod tests {
         .await?;
 
         let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).build());
-        encrypter.encrypt_json_file(in_path, out_path).await?;
+        encrypter.encrypt_file_aes_msgpack(in_path, out_path).await?;
 
         assert!(out_path.exists(), "file should have been created");
 
