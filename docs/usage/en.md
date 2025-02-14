@@ -9,8 +9,8 @@ Any time the game's app receives an update, these values will change.
 As of the last time this guide was updated, these were the latest app hashes.
 | Server | Version | Hash |
 | ------ | ------- | ---- |
-| Japan  | ``5.0.2`` | ``a87fc6e2-689c-b5a4-1608-968c93685dd8``
-| Global | ``3.2.0`` | ``1380836d-de9e-49a8-afe5-c52ba589c8c9``
+| Japan  | ``5.1.0`` | ``cf3ff961-ca94-a787-1038-9a0fc8809b37``
+| Global | ``3.3.0`` | ``5191cce5-d594-4432-8f0d-5bea1dbff5cf``
 
 ### Getting the most recent app version and hash
 If the values in the table above are outdated, you can get the latest ones using twintail's ``app-info`` command.
