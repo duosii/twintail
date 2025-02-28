@@ -56,8 +56,8 @@ impl DownloadAbConfigBuilder {
 
     /// Path to an assetbundle info file. If not provided, the latest one will be fetched
     pub fn info(mut self, info: AssetbundleInfo) -> Self {
-        self.config.host_hash = info.host_hash.clone();
-        self.config.asset_version = Some(info.version.clone());
+        //self.config.host_hash = info.host_hash.clone();
+        //self.config.asset_version = Some(info.version.clone());
         self.config.info = Some(info);
         self
     }

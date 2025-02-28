@@ -98,7 +98,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), twintail::Error> {
     };
 
     // build ab_config
-    let ab_config_builder = DownloadAbConfig::builder()
+    let download_ab_config = DownloadAbConfig::builder()
         .update(!args.no_update)
         .map(info, |config, info| config.info(info))
         .map(args.asset_version, |config, asset_version| {
@@ -126,7 +126,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), twintail::Error> {
     let mut fetcher = Fetcher::new(fetch_config).await?;
 
     // download assetbundles
-    fetcher.download_ab(args.out_dir, ab_config_builder).await?;
+    fetcher.download_ab(args.out_dir, download_ab_config).await?;
 
     Ok(())
 }

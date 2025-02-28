@@ -68,7 +68,7 @@ pub struct Assetbundle {
     pub cache_directory_name: String,
     pub hash: String,
     pub category: AssetbundleCategory,
-    pub crc: u64,
+    pub crc: u32,
     pub file_size: u64,
     pub dependencies: Vec<String>,
     pub paths: Vec<String>,
