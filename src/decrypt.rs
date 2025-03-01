@@ -1,9 +1,12 @@
-use std::{path::{Path, PathBuf}, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use futures::{stream, StreamExt};
 use serde_json::Value;
 use tokio::{
-    fs::File,
+    fs::{read, File},
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncWrite},
     time::Instant,
 };
@@ -18,7 +21,7 @@ use crate::{
     enums::CryptOperation,
     error::Error,
     utils::{
-        fs::{extract_suitemaster_file, scan_path},
+        fs::{extract_suitemaster_file, scan_path, write_file},
         progress::ProgressBar,
     },
 };
@@ -33,6 +36,33 @@ impl Decrypter {
     /// Creates a new Decrypter that will use the provided configuration.
     pub fn new(config: CryptConfig) -> Self {
         Self { config }
+    }
+
+    /// Decrypts msgpack + AES encrypted bytes into a type that implements the trait [`serde::de::DeserializeOwned`].
+    pub fn decrypt_aes_msgpack<S>(&self, bytes: &[u8]) -> Result<S, Error>
+    where
+        S: serde::de::DeserializeOwned,
+    {
+        let deserialized = aes_msgpack::from_slice(bytes, &self.config.aes_config)?;
+        Ok(deserialized)
+    }
+
+    /// Decrypts an aes msgpack file at the provided ``in_path`` into a JSON value.
+    ///
+    /// The .json file at ``in_path`` will be deserialized as a [`crate::models::serde::ValueF32`] before being encrypted.
+    ///
+    /// The file will be AES encrypted according to this encryptor's AES config.
+    pub async fn decrypt_file_aes_msgpack(
+        &self,
+        in_path: impl AsRef<Path>,
+        out_path: impl AsRef<Path>,
+    ) -> Result<(), Error> {
+        let file_bytes = read(in_path).await?;
+
+        let decrypted: Value = self.decrypt_aes_msgpack(&file_bytes)?;
+        let json_bytes = serde_json::to_vec_pretty(&decrypted)?;
+        write_file(out_path, &json_bytes).await?;
+        Ok(())
     }
 
     /// Decrypts an assetbundle from a Reader, returning the decrypted bytes.
@@ -102,8 +132,13 @@ impl Decrypter {
         let pretty_json = self.config.pretty_json;
         let decrypt_results: Vec<Result<(), Error>> = stream::iter(to_decrypt_paths)
             .map(|in_path| async {
-                let decrypt_result =
-                    decrypt_suitemaster_file(in_path, out_path, &self.config.aes_config, pretty_json).await;
+                let decrypt_result = decrypt_suitemaster_file(
+                    in_path,
+                    out_path,
+                    &self.config.aes_config,
+                    pretty_json,
+                )
+                .await;
                 if show_progress {
                     decrypt_progress.inc(1)
                 }
@@ -148,13 +183,13 @@ impl Decrypter {
 
 /// Reads the file at the input path as a [`serde_json::Value`]
 /// and extracts its inner fields to out_path as .json files.
-/// 
+///
 /// If pretty is true, then the extracted suitemaster json files will be prettified.
 async fn decrypt_suitemaster_file(
     in_path: PathBuf,
     out_path: &Path,
     aes_config: &AesConfig,
-    pretty: bool
+    pretty: bool,
 ) -> Result<(), Error> {
     // read in file
     let mut file = File::open(in_path).await?;
@@ -168,4 +203,47 @@ async fn decrypt_suitemaster_file(
     extract_suitemaster_file(deserialized, out_path, pretty).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::enums::Server;
+    use tempfile::tempdir;
+    use tokio::fs::{read_to_string, write};
+
+    #[tokio::test]
+    async fn test_decrypter_decrypt_file_aes_msgpack() -> Result<(), Error> {
+        let in_dir = tempdir()?;
+        let aes_config = Server::Japan.get_aes_config();
+
+        let file_json = r#"
+            {
+                "hatsune": "miku",
+                "kasane": 39
+            }
+            "#;
+        let file_json_value: Value = serde_json::from_str(&file_json)?;
+        let file_json_aes_msgpack_bytes =
+            aes_msgpack::into_vec(&file_json_value, &aes_config)?;
+
+        let in_file_path = in_dir.path().join("file");
+        write(&in_file_path, file_json_aes_msgpack_bytes).await?;
+
+        let out_file_path = in_dir.path().join("file.json");
+        let encrypter = Decrypter::new(
+            CryptConfig::builder()
+                .quiet(true)
+                .aes(aes_config.clone())
+                .build(),
+        );
+        encrypter
+            .decrypt_file_aes_msgpack(&in_file_path, &out_file_path)
+            .await?;
+
+        let decrypted_file_string = read_to_string(&out_file_path).await?;
+        let decrypted_file_value: Value = serde_json::from_str(&decrypted_file_string)?;
+        assert_eq!(file_json_value, decrypted_file_value);
+        Ok(())
+    }
 }

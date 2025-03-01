@@ -218,8 +218,8 @@ impl Encrypter {
         in_path: impl AsRef<Path>,
         out_path: impl AsRef<Path>,
     ) -> Result<(), Error> {
-        let file_string = tokio::fs::read_to_string(in_path.as_ref()).await?;
-        let encrypted_bytes = self.encrypt_json_bytes_aes_msgpack(file_string.as_bytes())?;
+        let file_bytes = tokio::fs::read(in_path.as_ref()).await?;
+        let encrypted_bytes = self.encrypt_json_bytes_aes_msgpack(&file_bytes)?;
         write_file(out_path, &encrypted_bytes).await?;
         Ok(())
     }
@@ -239,8 +239,11 @@ fn serialize_values(
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
     use tempfile::tempdir;
-    use tokio::fs::write;
+    use tokio::fs::{read, write};
+
+    use crate::enums::Server;
 
     use super::*;
 
@@ -287,7 +290,9 @@ mod tests {
         .await?;
 
         let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).build());
-        encrypter.encrypt_file_aes_msgpack(in_path, out_path).await?;
+        encrypter
+            .encrypt_file_aes_msgpack(in_path, out_path)
+            .await?;
 
         assert!(out_path.exists(), "file should have been created");
 
@@ -333,6 +338,33 @@ mod tests {
         };
         assert_eq!(out_files.len(), split_count);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_encrypter_encrypt_file_aes_msgpack() -> Result<(), Error> {
+        let in_dir = tempdir()?;
+        let aes_config = Server::Japan.get_aes_config();
+
+        let in_file_path = in_dir.path().join("file.json");
+        let in_file_json = r#"{"hatsune":"miku","kasane":39}"#;
+
+        write(&in_file_path, in_file_json).await?;
+
+        // generate expected value
+        let in_file_json_value: Value = serde_json::from_str(&in_file_json)?;
+
+        // encrypt in_file
+        let out_file_path = in_dir.path().join("file");
+        let encrypter = Encrypter::new(CryptConfig::builder().quiet(true).aes(aes_config.clone()).build());
+        encrypter
+            .encrypt_file_aes_msgpack(&in_file_path, &out_file_path)
+            .await?;
+
+        let out_file_bytes = read(out_file_path).await?;
+        let out_file_value: Value = aes_msgpack::from_slice(&out_file_bytes, &aes_config)?;
+        
+        assert_eq!(in_file_json_value, out_file_value);
         Ok(())
     }
 }
