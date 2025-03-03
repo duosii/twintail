@@ -54,12 +54,12 @@ impl Server {
     pub fn get_aes_config(&self) -> AesConfig {
         match self {
             Self::Japan => AesConfig {
-                key: crypto::JAPAN_KEY.clone(),
-                iv: crypto::JAPAN_IV.clone(),
+                key: *crypto::JAPAN_KEY,
+                iv: *crypto::JAPAN_IV,
             },
             Self::Global => AesConfig {
-                key: crypto::GLOBAL_KEY.clone(),
-                iv: crypto::GLOBAL_IV.clone(),
+                key: *crypto::GLOBAL_KEY,
+                iv: *crypto::GLOBAL_IV,
             },
         }
     }

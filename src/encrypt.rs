@@ -96,7 +96,7 @@ impl Encrypter {
         let deserialized_len = values.len();
         let chunk_size = {
             let max_chunks = split.clamp(1, deserialized_len);
-            (deserialized_len + max_chunks - 1) / max_chunks
+            deserialized_len.div_ceil(max_chunks)
         };
 
         let chunks: Vec<Result<Vec<u8>, rmp_serde::encode::Error>> = values

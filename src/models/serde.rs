@@ -17,7 +17,7 @@ impl<'de> Deserialize<'de> for F32Wrapper {
     {
         struct F32Visitor;
 
-        impl<'de> Visitor<'de> for F32Visitor {
+        impl Visitor<'_> for F32Visitor {
             type Value = F32Wrapper;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

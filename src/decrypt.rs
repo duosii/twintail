@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-/// A struct responsible for encryption.
+/// A struct responsible for decryption.
 #[derive(Default)]
 pub struct Decrypter {
     config: CryptConfig,

@@ -297,7 +297,7 @@ impl<P: UrlProvider> Fetcher<P> {
         for (bundle_name, bundle) in assetbundle_info.bundles {
             if bundle_name_re
                 .as_ref()
-                .map_or(true, |re| re.find(&bundle_name).is_some())
+                .is_none_or(|re| re.find(&bundle_name).is_some())
             {
                 let out_path = out_dir.join(self.client.url_provider.assetbundle_path(
                     &ab_path_args.asset_version,
@@ -564,7 +564,7 @@ fn get_assetbundles_differences(
         .filter(|(bundle_name, bundle)| {
             compare_bundles
                 .get(bundle_name)
-                .map_or(true, |compare_bundle| compare_bundle.hash != bundle.hash)
+                .is_none_or(|compare_bundle| compare_bundle.hash != bundle.hash)
         })
         .collect()
 }

@@ -2,7 +2,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::{
-    collections::VecDeque, io::Read, path::{Path, PathBuf}
+    collections::VecDeque, path::{Path, PathBuf}
 };
 use tokio::{
     fs::{self, create_dir_all, File},
