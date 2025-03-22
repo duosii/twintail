@@ -1,8 +1,8 @@
 **| :us: English | :jp: [日本語](docs/readme/jp.md) |**
 # twintail
-A fast command-line tool for Project SEKAI (プロジェクトセカイ カラフルステージ！) that allows you to download the game's assets or encrypt and decrypt them.
+A fast command-line tool for Project SEKAI (プロジェクトセカイ カラフルステージ！) that allows you to download the game's assets and encrypt or decrypt them.
 
-twintail currently supports the game's global and Japan servers.
+twintail currently supports the game's English and Japanese servers.
 
 You can download the most recent version from the [releases page](https://github.com/Duosion/twintail/releases/latest) or [build it](#building).
 

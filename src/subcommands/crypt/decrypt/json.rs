@@ -1,6 +1,6 @@
 use clap::Args;
 use tokio::time::Instant;
-use twintail::{config::crypt_config::CryptConfig, enums::Server, Decrypter};
+use twintail::{config::crypt_config::CryptConfig, models::enums::Server, Decrypter};
 
 use crate::constants::{color, strings};
 

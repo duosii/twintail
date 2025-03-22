@@ -1,6 +1,6 @@
 use clap::Args;
 use std::io::{stdin, stdout, Write};
-use twintail::{config::fetch_config::FetchConfig, enums::Server, Fetcher};
+use twintail::{config::fetch_config::FetchConfig, models::enums::Server, Fetcher};
 
 use crate::constants::{color, strings};
 

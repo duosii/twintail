@@ -31,7 +31,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{enums::Server, models::api::GameVersion};
+    use crate::{models::enums::Server, models::api::GameVersion};
 
     use super::*;
 

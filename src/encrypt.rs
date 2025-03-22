@@ -10,9 +10,8 @@ use crate::{
         aes_msgpack,
         assetbundle::{self, AbCryptArgs},
     },
-    enums::CryptOperation,
     error::Error,
-    models::serde::ValueF32,
+    models::{enums::CryptOperation, serde::ValueF32},
     utils::{
         fs::{deserialize_files, scan_path, write_file},
         progress::ProgressBar,
@@ -243,7 +242,7 @@ mod tests {
     use tempfile::tempdir;
     use tokio::fs::{read, write};
 
-    use crate::enums::Server;
+    use crate::models::enums::Server;
 
     use super::*;
 

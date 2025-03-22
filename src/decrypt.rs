@@ -18,7 +18,7 @@ use crate::{
         aes_msgpack,
         assetbundle::{self, AbCryptArgs},
     },
-    enums::CryptOperation,
+    models::enums::CryptOperation,
     error::Error,
     utils::{
         fs::{extract_suitemaster_file, scan_path, write_file},
@@ -208,7 +208,7 @@ async fn decrypt_suitemaster_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::enums::Server;
+    use crate::models::enums::Server;
     use tempfile::tempdir;
     use tokio::fs::{read_to_string, write};
 

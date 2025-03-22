@@ -1,7 +1,7 @@
 use clap::Args;
 use twintail::{
     config::{fetch_config::FetchConfig, OptionalBuilder},
-    enums::{Platform, Server},
+    models::enums::{Platform, Server},
     Fetcher,
 };
 

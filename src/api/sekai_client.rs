@@ -434,7 +434,7 @@ impl<T: UrlProvider> SekaiClient<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::url::test_provider::TestUrlProvider, enums::Server, models::api::AppVersion};
+    use crate::{api::url::test_provider::TestUrlProvider, models::enums::Server, models::api::AppVersion};
 
     const SIGNATURE_COOKIE_VALUE: &str = "signature_cookie";
     const SUITEMASTER_FILE_CONTENT: &str = "HELLO SUITEMASTER FILE!!!";

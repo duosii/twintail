@@ -7,7 +7,7 @@ use tokio::{
 };
 use twintail::{
     config::fetch_config::FetchConfig,
-    enums::{Platform, Server},
+    models::enums::{Platform, Server},
     Fetcher,
 };
 

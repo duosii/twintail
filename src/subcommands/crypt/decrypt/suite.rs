@@ -1,7 +1,7 @@
 use clap::Args;
 use twintail::{
     config::{crypt_config::CryptConfig, OptionalBuilder},
-    enums::Server,
+    models::enums::Server,
     Decrypter,
 };
 

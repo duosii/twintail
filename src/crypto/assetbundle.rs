@@ -12,7 +12,7 @@ use tokio::{
 
 use crate::{
     constants::color,
-    enums::CryptOperation,
+    models::enums::CryptOperation,
     error::AssetbundleError,
     utils::{
         fs::{scan_path, write_file},

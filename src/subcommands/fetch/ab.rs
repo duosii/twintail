@@ -5,9 +5,12 @@ use tokio::{
     io::{AsyncReadExt, BufReader},
 };
 use twintail::{
-    config::{download_ab_config::DownloadAbConfig, fetch_config::FetchConfig, OptionalBuilder},
-    enums::{Platform, Server},
-    AssetbundleInfo, Fetcher,
+    Fetcher,
+    config::{OptionalBuilder, download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
+    models::{
+        api::AssetbundleInfo,
+        enums::{Platform, Server},
+    },
 };
 
 #[derive(Debug, Args)]
@@ -126,7 +129,9 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), twintail::Error> {
     let mut fetcher = Fetcher::new(fetch_config).await?;
 
     // download assetbundles
-    fetcher.download_ab(args.out_dir, download_ab_config).await?;
+    fetcher
+        .download_ab(args.out_dir, download_ab_config)
+        .await?;
 
     Ok(())
 }

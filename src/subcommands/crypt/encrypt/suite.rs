@@ -2,7 +2,7 @@ use clap::Args;
 use tokio::time::Instant;
 use twintail::{
     config::{crypt_config::CryptConfig, OptionalBuilder},
-    enums::Server,
+    models::enums::Server,
     Encrypter,
 };
 
