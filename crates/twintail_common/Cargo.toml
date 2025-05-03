@@ -1,0 +1,15 @@
+[package]
+name = "twintail_common"
+edition = "2024"
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+cbc.workspace = true
+aes.workspace = true
+rmp-serde.workspace = true
+thiserror.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+indicatif.workspace = true
+anstyle.workspace = true

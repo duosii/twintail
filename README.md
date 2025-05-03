@@ -29,5 +29,5 @@ cargo run --release
 
 To run tests:
 ```
-cargo test
+cargo test --workspace
 ```

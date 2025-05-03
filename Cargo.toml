@@ -1,15 +1,10 @@
 [package]
 name = "twintail"
-version = "1.1.18"
+version = "1.2.0"
 edition = "2024"
 
-[lib]
-name = "twintail"
-path = "src/lib.rs"
-
-[[bin]]
-name = "twintail"
-path = "src/main.rs"
+[workspace]
+members = [".", "crates/*"]
 
 [profile.release]
 codegen-units = 1
@@ -18,7 +13,22 @@ opt-level = 3
 panic = "abort"
 strip = true
 
-[dependencies]
+[profile.dev]
+opt-level = 1
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+codegen-units = 256
+panic = 'unwind'
+
+[workspace.dependencies]
+twintail_cli = { path = "crates/twintail_cli" }
+twintail_common = { path = "crates/twintail_common" }
+twintail_core = { path = "crates/twintail_core" }
+twintail_sekai = { path = "crates/twintail_sekai" }
+
 aes = "0.8.4"
 anstyle = "1.0.10"
 cbc = { version = "0.1.2", features = ["alloc"] }
@@ -41,7 +51,13 @@ thiserror = "1.0.66"
 tokio = { version = "1.41.0", features = ["full"] }
 tokio-retry = "0.3.0"
 zip = "2.2.1"
-
-[dev-dependencies]
 mockito = "1.5.0"
 tempfile = "3.13.0"
+
+[dependencies]
+twintail_cli.workspace = true
+twintail_common.workspace = true
+twintail_core.workspace = true
+twintail_sekai.workspace = true
+tokio.workspace = true
+

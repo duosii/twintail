@@ -1,0 +1,20 @@
+[package]
+name = "twintail_sekai"
+edition = "2024"
+
+[dependencies]
+twintail_common.workspace = true
+
+thiserror.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_plain.workspace = true
+serde_json.workspace = true
+rmp-serde.workspace = true
+jwt.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+mockito.workspace = true
