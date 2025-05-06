@@ -52,7 +52,7 @@ pub async fn fetch_save(args: SaveArgs) -> Result<(), Error> {
         .quiet(args.quiet)
         .pretty_json(!args.compact)
         .build();
-    let mut fetcher = Fetcher::new(fetch_config).await?;
+    let (mut fetcher, _) = Fetcher::new(fetch_config).await?;
 
     // fetch user inherit data
     let user_inherit = fetcher

@@ -1,13 +1,12 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    time::Duration,
 };
 
 use futures::{StreamExt, stream};
 use humansize::{DECIMAL, format_size};
 use regex::Regex;
-use tokio::{fs::create_dir_all, time::Instant};
+use tokio::{fs::create_dir_all, sync::watch, time::Instant};
 use tokio_retry::{Retry, strategy::FixedInterval};
 use twintail_common::{color, utils::progress::ProgressBar};
 use twintail_sekai::{
@@ -25,17 +24,48 @@ use crate::{
 
 mod strings {
     pub const NO_RECENT_VERSION: &str = "most recent game version not found";
-    pub const COMMUNICATING: &str = "Communicating with game servers...";
     pub const RETRIEVING_AB_INFO: &str = "Retrieving assetbundle info...";
     pub const DOWNLOADING: &str = "Downloading files...";
     pub const DOWNLOADED: &str = "downloaded";
     pub const INVALID_RE: &str =
         "Invalid filter regular expression provided. No filter will be applied.";
-    pub const SUITE_VERSION: &str = "[Suite Data Version]:";
     pub const INHERIT_GETTING_USER_DATA: &str = "Getting player information...";
     pub const INHERIT_LOGGING_IN: &str = "Logging into your account...";
     pub const INHERIT_GETTING_SAVE_DATA: &str = "Retrieving your account's save data...";
     pub const INHERIT_FINISH_WARNING: &str = "Don't forget to use the same transfer ID and password to transfer your account back to its original device.";
+}
+
+#[derive(Clone, Copy)]
+pub enum DownloadSuiteState {
+    /// The suite downloader is communicating with the game server
+    Communicate,
+    /// The specified number of suite files are being downloaded
+    DownloadStart(usize),
+    /// A suite file was downloaded
+    FileDownload,
+    /// The suite download finished. Contains the number of files that were downloaded and the number of files that were available to download
+    Finish,
+}
+
+#[derive(Clone, Copy)]
+pub enum DownloadAbState {
+    /// assetbundle info is being retrieved from the game server
+    RetrieveAbInfo,
+    /// an invalid regular expression was given to the downloader
+    InvalidRegEx,
+    /// the given number of bytes are being downloaded
+    DownloadStart(u64),
+    /// a file of the provided size in bytes was downloaded
+    FileDownload(u64),
+    /// the download process finished
+    Finish
+}
+
+#[derive(Clone, Copy)]
+pub enum FetchState {
+    NoState,
+    DownloadSuite(DownloadSuiteState),
+    DownloadAb(DownloadAbState),
 }
 
 #[derive(Debug)]
@@ -47,13 +77,14 @@ struct AssetbundlePathArgs {
 
 /// Responsible for fetching assets or information from the game's official servers.
 pub struct Fetcher<P: UrlProvider> {
+    state_sender: watch::Sender<FetchState>,
     config: FetchConfig<P>,
     client: SekaiClient<P>,
 }
 
 impl<P: UrlProvider> Fetcher<P> {
     /// Create a new Fetcher using the provided [`crate::config::fetch_config::FetchConfig`]
-    pub async fn new(config: FetchConfig<P>) -> Result<Self, Error> {
+    pub async fn new(config: FetchConfig<P>) -> Result<(Self, watch::Receiver<FetchState>), Error> {
         let client = SekaiClient::new_with_url_provider(
             config.version.clone(),
             config.hash.clone(),
@@ -64,7 +95,16 @@ impl<P: UrlProvider> Fetcher<P> {
         )
         .await?;
 
-        Ok(Self { config, client })
+        let (state_sender, recv) = watch::channel(FetchState::NoState);
+
+        Ok((
+            Self {
+                state_sender,
+                config,
+                client,
+            },
+            recv,
+        ))
     }
 
     /// Gets assetbundle info from the game server.
@@ -76,7 +116,7 @@ impl<P: UrlProvider> Fetcher<P> {
         host_hash: Option<String>,
     ) -> Result<AssetbundleInfo, Error> {
         // get asset hash only if we got the most recent versions of the asset_version & host_hash
-        let asset_hash = if asset_version.is_none() && host_hash.is_none() {
+        let asset_hash = {
             let user_signup = self.client.user_signup().await?;
             let user_auth_response = self
                 .client
@@ -85,9 +125,7 @@ impl<P: UrlProvider> Fetcher<P> {
                     user_signup.credential,
                 )
                 .await?;
-            Some(user_auth_response.asset_hash)
-        } else {
-            None
+            user_auth_response.asset_hash
         };
 
         // get the assetbundle host hash
@@ -112,10 +150,10 @@ impl<P: UrlProvider> Fetcher<P> {
         // get the assetbundle info
         let mut assetbundle_info = self
             .client
-            .get_assetbundle_info(&asset_version, &host_hash)
+            .get_assetbundle_info(&asset_version, &asset_hash, &host_hash)
             .await?;
         assetbundle_info.host_hash = Some(host_hash.to_string());
-        assetbundle_info.hash = asset_hash;
+        assetbundle_info.hash = Some(asset_hash);
 
         Ok(assetbundle_info)
     }
@@ -125,24 +163,18 @@ impl<P: UrlProvider> Fetcher<P> {
     /// If ``out_path`` does not exist, it will be created.
     /// If this Fetcher was created using a configuration with ``decrypt`` set to true, the suitemaster files will be decrypted as .json files.
     ///
-    /// Returns the number of suitemasterfiles that were successfully processed.
-    pub async fn download_suite(&mut self, out_path: impl AsRef<Path>) -> Result<usize, Error> {
-        let show_progress = !self.config.quiet;
-
-        // create communication spinner
-        let login_spinner = if show_progress {
-            println!(
-                "{}[1/2] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::COMMUNICATING,
-            );
-            Some(ProgressBar::spinner())
-        } else {
-            None
-        };
-
+    /// Returns:
+    /// - The number of suitemasterfiles that were successfully processed
+    /// - The total number of suitemasterfiles that were available to download,
+    /// - The current suitemaster data version
+    pub async fn download_suite(
+        &mut self,
+        out_path: impl AsRef<Path>,
+    ) -> Result<(usize, usize, String), Error> {
         // see what suite master split files are available for download
+        self.state_sender
+            .send_replace(FetchState::DownloadSuite(DownloadSuiteState::Communicate));
+
         let user_signup = self.client.user_signup().await?;
         let user_login = self
             .client
@@ -152,41 +184,18 @@ impl<P: UrlProvider> Fetcher<P> {
             )
             .await?;
 
-        // clear login spinner if it exists
-        if let Some(spinner) = login_spinner {
-            spinner.finish_and_clear()
-        }
-
         // create download progress bar
         let suitemaster_split_paths = user_login.suite_master_split_path;
         let split_count = suitemaster_split_paths.len();
 
-        let download_progress = if show_progress {
-            println!(
-                "{}[2/2] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::DOWNLOADING,
-            );
-            println!(
-                "{}{} {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                strings::SUITE_VERSION,
-                color::TEXT.render_fg(),
-                user_login.data_version
-            );
-
-            let progress = ProgressBar::progress(split_count as u64);
-            progress.enable_steady_tick(Duration::from_millis(100));
-            Some(progress)
-        } else {
-            None
-        };
+        self.state_sender
+            .send_replace(FetchState::DownloadSuite(DownloadSuiteState::DownloadStart(
+                split_count,
+            )));
 
         // download suite master split files
         let out_path = out_path.as_ref();
         let retry_strat = FixedInterval::from_millis(200).take(self.config.retry);
-        let download_start = Instant::now();
         let do_decrypt = self.config.decrypt;
         let pretty_json = self.config.pretty_json;
 
@@ -202,19 +211,14 @@ impl<P: UrlProvider> Fetcher<P> {
                     )
                 })
                 .await;
-                if let Some(progress) = &download_progress {
-                    progress.inc(1);
-                }
+                self.state_sender.send_replace(FetchState::DownloadSuite(
+                    DownloadSuiteState::FileDownload,
+                ));
                 retry_result
             })
             .buffer_unordered(self.config.concurrency)
             .collect()
             .await;
-
-        // stop progress bar
-        if let Some(progress) = download_progress {
-            progress.finish_and_clear();
-        }
 
         // print result
         let success_count = download_results
@@ -222,41 +226,25 @@ impl<P: UrlProvider> Fetcher<P> {
             .filter(|&result| result.is_ok())
             .count();
 
-        if show_progress {
-            println!(
-                "{}Successfully {} {} / {} files in {:?}{}",
-                color::SUCCESS.render_fg(),
-                strings::DOWNLOADED,
-                success_count,
-                split_count,
-                Instant::now().duration_since(download_start),
-                color::TEXT.render_fg(),
-            );
-        }
+        self.state_sender
+            .send_replace(FetchState::DownloadSuite(DownloadSuiteState::Finish));
 
-        Ok(success_count)
+        Ok((success_count, split_count, user_login.data_version))
     }
 
     /// Downloads assetbundles to the provided ``out_dir`` using the provided config.
+    /// 
+    /// Returns the number of files that were successfully downloaded and
+    /// the number of files that were available for download.
     pub async fn download_ab(
         &mut self,
         out_dir: impl AsRef<Path>,
         config: DownloadAbConfig,
-    ) -> Result<usize, Error> {
+    ) -> Result<(usize, usize), Error> {
         let show_progress = !self.config.quiet;
 
         // create assetbundle spinner
-        let ab_info_spinner = if show_progress {
-            println!(
-                "{}[1/2] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::RETRIEVING_AB_INFO,
-            );
-            Some(ProgressBar::spinner())
-        } else {
-            None
-        };
+        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::RetrieveAbInfo));
 
         // get assetbundle info
         let assetbundle_info = match config.info {
@@ -279,11 +267,6 @@ impl<P: UrlProvider> Fetcher<P> {
                 }
             }
         };
-
-        // stop assetbundle info spinner
-        if let Some(spinner) = ab_info_spinner {
-            spinner.finish_and_clear()
-        }
 
         // extract data from assetbundle_info
         let ab_path_args = AssetbundlePathArgs {
@@ -323,12 +306,7 @@ impl<P: UrlProvider> Fetcher<P> {
         }
 
         if config.filter.is_some() && bundle_name_re.is_none() && show_progress {
-            println!(
-                "{}{}{}",
-                color::ERROR.render_fg(),
-                strings::INVALID_RE,
-                color::TEXT.render_fg()
-            )
+            self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::InvalidRegEx));
         }
 
         // make sure the out_dir has enough space
@@ -342,36 +320,28 @@ impl<P: UrlProvider> Fetcher<P> {
         }
 
         // create download progress bar
-        let download_progress = if show_progress {
-            println!(
-                "{}[2/2] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::DOWNLOADING,
-            );
-            Some(ProgressBar::download(total_bundle_size))
-        } else {
-            None
-        };
+        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::DownloadStart(total_bundle_size)));
 
         // download bundles
-        let download_start = Instant::now();
         let retry_strat = FixedInterval::from_millis(200).take(self.config.retry);
         let do_decrypt = self.config.decrypt;
 
         let download_results: Vec<Result<(), Error>> = stream::iter(&to_download_bundles)
             .map(|(bundle, out_path)| async {
-                Retry::spawn(retry_strat.clone(), || {
+                let download_result = Retry::spawn(retry_strat.clone(), || {
                     download_bundle(
                         &self.client,
                         bundle,
                         out_path,
                         &ab_path_args,
-                        &download_progress,
                         do_decrypt,
                     )
                 })
-                .await
+                .await;
+                if download_result.is_ok() {
+                    self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::FileDownload(bundle.file_size)));
+                }
+                download_result
             })
             .buffer_unordered(self.config.concurrency)
             .collect()
@@ -393,20 +363,9 @@ impl<P: UrlProvider> Fetcher<P> {
             .count();
 
         // stop progress bar & print the sucess message
-        if let Some(progress) = download_progress {
-            progress.finish_and_clear();
-            println!(
-                "{}Successfully {} {} / {} files in {:?}{}",
-                color::SUCCESS.render_fg(),
-                strings::DOWNLOADED,
-                success_count,
-                to_download_bundles.len(),
-                Instant::now().duration_since(download_start),
-                color::TEXT.render_fg(),
-            );
-        }
+        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::Finish));
 
-        Ok(success_count)
+        Ok((success_count, to_download_bundles.len()))
     }
 
     /// Performs a request to get a user's account inherit details.
@@ -587,7 +546,6 @@ async fn download_bundle<P: UrlProvider>(
     bundle: &Assetbundle,
     out_path: &Path,
     path_args: &AssetbundlePathArgs,
-    download_progress: &Option<indicatif::ProgressBar>,
     decrypt: bool,
 ) -> Result<(), Error> {
     // download
@@ -612,10 +570,5 @@ async fn download_bundle<P: UrlProvider>(
 
     // write file
     write_file(out_path, &ab_data).await?;
-
-    // increment progress
-    if let Some(progress) = download_progress {
-        progress.inc(bundle.file_size);
-    }
     Ok(())
 }

@@ -10,9 +10,20 @@ pub mod crypto {
 }
 
 pub mod command {
+    pub const DOWNLOADING: &str = "Downloading files...";
+    pub const DOWNLOADED: &str = "downloaded";
+
+    // suite
+    pub const SUITE_VERSION: &str = "[Suite Data Version]:";
+
     // ab-info
+    pub const RETRIEVING_AB_INFO: &str = "Retrieving assetbundle info...";
     pub const COMMUNICATING: &str = "Communicating with game servers...";
     pub const PATHS_SAVED_TO: &str = "Paths saved to ";
+
+    // assetbundle
+    pub const INVALID_RE: &str =
+        "Invalid filter regular expression provided. No filter will be applied.";
 
     // extract hash
     pub const EXTRACTING: &str = "Extracting version and hash from file...";

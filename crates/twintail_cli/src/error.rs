@@ -10,4 +10,7 @@ pub enum Error {
 
     #[error("JSON de/serialization error: {0}")]
     SerdeJson(#[from] serde_json::Error),
+
+    #[error("tokio join error")]
+    TokioJoin(#[from] tokio::task::JoinError),
 }

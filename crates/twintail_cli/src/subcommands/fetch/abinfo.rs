@@ -71,7 +71,7 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), Error> {
         .server(args.server)
         .quiet(args.quiet)
         .build();
-    let mut fetcher = Fetcher::new(fetch_config).await?;
+    let (mut fetcher, _) = Fetcher::new(fetch_config).await?;
 
     let assetbundle_info = fetcher
         .get_ab_info(args.asset_version, args.host_hash)

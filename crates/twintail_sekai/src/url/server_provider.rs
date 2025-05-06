@@ -55,11 +55,12 @@ impl UrlProvider for ServerUrlProvider {
         &self,
         host_hash: &str,
         asset_version: &str,
+        asset_hash: &str,
         platform: &Platform,
     ) -> String {
         match self {
-            Self::Japan(provider) => provider.assetbundle_info(host_hash, asset_version, platform),
-            Self::Global(provider) => provider.assetbundle_info(host_hash, asset_version, platform),
+            Self::Japan(provider) => provider.assetbundle_info(host_hash, asset_version, asset_hash, platform),
+            Self::Global(provider) => provider.assetbundle_info(host_hash, asset_version, asset_hash, platform),
         }
     }
 

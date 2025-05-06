@@ -41,7 +41,7 @@ impl UrlProvider for GlobalUrlProvider {
         )
     }
 
-    fn assetbundle_info(&self, _: &str, asset_version: &str, platform: &Platform) -> String {
+    fn assetbundle_info(&self, _: &str, asset_version: &str, _: &str, platform: &Platform) -> String {
         format!(
             "https://assetbundle-info.urls-en.com{}/{}/os/{}",
             urls::assetbundle::INFO,

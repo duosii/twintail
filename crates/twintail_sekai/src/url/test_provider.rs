@@ -43,14 +43,16 @@ impl UrlProvider for TestUrlProvider {
         &self,
         host_hash: &str,
         asset_version: &str,
+        asset_hash: &str,
         platform: &Platform,
     ) -> String {
         format!(
-            "{}-{}{}/{}/os/{}",
+            "{}-{}{}/{}/{}/os/{}",
             self.host,
             host_hash,
             urls::assetbundle::INFO,
             asset_version,
+            asset_hash,
             platform.to_string()
         )
     }
