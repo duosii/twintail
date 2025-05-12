@@ -130,7 +130,8 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), Error> {
 
     // download suitemaster files
     let download_start = Instant::now();
-    let (downloaded_count, file_count, suite_version) = fetcher.download_suite(args.out_path).await?;
+    let (downloaded_count, file_count, suite_version) =
+        fetcher.download_suite(args.out_path).await?;
 
     if let Some(watcher) = state_watcher {
         watcher.await?;

@@ -6,9 +6,8 @@ use std::{
 use futures::{StreamExt, stream};
 use humansize::{DECIMAL, format_size};
 use regex::Regex;
-use tokio::{fs::create_dir_all, sync::watch, time::Instant};
+use tokio::{fs::create_dir_all, sync::watch};
 use tokio_retry::{Retry, strategy::FixedInterval};
-use twintail_common::{color, utils::progress::ProgressBar};
 use twintail_sekai::{
     models::{Assetbundle, AssetbundleInfo, UserInherit},
     sekai_client::SekaiClient,
@@ -21,19 +20,6 @@ use crate::{
     crypto::assetbundle,
     fs::{extract_suitemaster_file, write_file},
 };
-
-mod strings {
-    pub const NO_RECENT_VERSION: &str = "most recent game version not found";
-    pub const RETRIEVING_AB_INFO: &str = "Retrieving assetbundle info...";
-    pub const DOWNLOADING: &str = "Downloading files...";
-    pub const DOWNLOADED: &str = "downloaded";
-    pub const INVALID_RE: &str =
-        "Invalid filter regular expression provided. No filter will be applied.";
-    pub const INHERIT_GETTING_USER_DATA: &str = "Getting player information...";
-    pub const INHERIT_LOGGING_IN: &str = "Logging into your account...";
-    pub const INHERIT_GETTING_SAVE_DATA: &str = "Retrieving your account's save data...";
-    pub const INHERIT_FINISH_WARNING: &str = "Don't forget to use the same transfer ID and password to transfer your account back to its original device.";
-}
 
 #[derive(Clone, Copy)]
 pub enum DownloadSuiteState {
@@ -58,7 +44,25 @@ pub enum DownloadAbState {
     /// a file of the provided size in bytes was downloaded
     FileDownload(u64),
     /// the download process finished
-    Finish
+    Finish,
+}
+
+#[derive(Clone, Copy)]
+pub enum GetUserInheritState {
+    /// communicating with the game server to get inherit data
+    GetInherit,
+    /// user inherit data has been received
+    Finish,
+}
+
+#[derive(Clone, Copy)]
+pub enum WriteUserSaveDataState {
+    /// logging into the user's account
+    Login,
+    /// get the user's save data
+    GetSaveData,
+    /// save data has been written to the specified location
+    Finish,
 }
 
 #[derive(Clone, Copy)]
@@ -66,6 +70,8 @@ pub enum FetchState {
     NoState,
     DownloadSuite(DownloadSuiteState),
     DownloadAb(DownloadAbState),
+    GetUserInherit(GetUserInheritState),
+    WriteUserSaveData(WriteUserSaveDataState),
 }
 
 #[derive(Debug)]
@@ -143,7 +149,7 @@ impl<P: UrlProvider> Fetcher<P> {
             if let Some(most_recent_version) = system_info.app_versions.last() {
                 Ok(most_recent_version.asset_version.clone())
             } else {
-                Err(Error::NotFound(strings::NO_RECENT_VERSION.to_string()))
+                Err(Error::NotFound("most recent game version not found".into()))
             }
         }?;
 
@@ -188,10 +194,9 @@ impl<P: UrlProvider> Fetcher<P> {
         let suitemaster_split_paths = user_login.suite_master_split_path;
         let split_count = suitemaster_split_paths.len();
 
-        self.state_sender
-            .send_replace(FetchState::DownloadSuite(DownloadSuiteState::DownloadStart(
-                split_count,
-            )));
+        self.state_sender.send_replace(FetchState::DownloadSuite(
+            DownloadSuiteState::DownloadStart(split_count),
+        ));
 
         // download suite master split files
         let out_path = out_path.as_ref();
@@ -211,9 +216,8 @@ impl<P: UrlProvider> Fetcher<P> {
                     )
                 })
                 .await;
-                self.state_sender.send_replace(FetchState::DownloadSuite(
-                    DownloadSuiteState::FileDownload,
-                ));
+                self.state_sender
+                    .send_replace(FetchState::DownloadSuite(DownloadSuiteState::FileDownload));
                 retry_result
             })
             .buffer_unordered(self.config.concurrency)
@@ -233,7 +237,7 @@ impl<P: UrlProvider> Fetcher<P> {
     }
 
     /// Downloads assetbundles to the provided ``out_dir`` using the provided config.
-    /// 
+    ///
     /// Returns the number of files that were successfully downloaded and
     /// the number of files that were available for download.
     pub async fn download_ab(
@@ -244,7 +248,8 @@ impl<P: UrlProvider> Fetcher<P> {
         let show_progress = !self.config.quiet;
 
         // create assetbundle spinner
-        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::RetrieveAbInfo));
+        self.state_sender
+            .send_replace(FetchState::DownloadAb(DownloadAbState::RetrieveAbInfo));
 
         // get assetbundle info
         let assetbundle_info = match config.info {
@@ -306,7 +311,8 @@ impl<P: UrlProvider> Fetcher<P> {
         }
 
         if config.filter.is_some() && bundle_name_re.is_none() && show_progress {
-            self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::InvalidRegEx));
+            self.state_sender
+                .send_replace(FetchState::DownloadAb(DownloadAbState::InvalidRegEx));
         }
 
         // make sure the out_dir has enough space
@@ -320,7 +326,10 @@ impl<P: UrlProvider> Fetcher<P> {
         }
 
         // create download progress bar
-        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::DownloadStart(total_bundle_size)));
+        self.state_sender
+            .send_replace(FetchState::DownloadAb(DownloadAbState::DownloadStart(
+                total_bundle_size,
+            )));
 
         // download bundles
         let retry_strat = FixedInterval::from_millis(200).take(self.config.retry);
@@ -329,17 +338,13 @@ impl<P: UrlProvider> Fetcher<P> {
         let download_results: Vec<Result<(), Error>> = stream::iter(&to_download_bundles)
             .map(|(bundle, out_path)| async {
                 let download_result = Retry::spawn(retry_strat.clone(), || {
-                    download_bundle(
-                        &self.client,
-                        bundle,
-                        out_path,
-                        &ab_path_args,
-                        do_decrypt,
-                    )
+                    download_bundle(&self.client, bundle, out_path, &ab_path_args, do_decrypt)
                 })
                 .await;
                 if download_result.is_ok() {
-                    self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::FileDownload(bundle.file_size)));
+                    self.state_sender.send_replace(FetchState::DownloadAb(
+                        DownloadAbState::FileDownload(bundle.file_size),
+                    ));
                 }
                 download_result
             })
@@ -363,7 +368,8 @@ impl<P: UrlProvider> Fetcher<P> {
             .count();
 
         // stop progress bar & print the sucess message
-        self.state_sender.send_replace(FetchState::DownloadAb(DownloadAbState::Finish));
+        self.state_sender
+            .send_replace(FetchState::DownloadAb(DownloadAbState::Finish));
 
         Ok((success_count, to_download_bundles.len()))
     }
@@ -379,29 +385,16 @@ impl<P: UrlProvider> Fetcher<P> {
         password: &str,
         execute: bool,
     ) -> Result<UserInherit, Error> {
-        let show_progress = !self.config.quiet;
-
-        // create assetbundle spinner
-        let spinner = if show_progress {
-            println!(
-                "{}{}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::INHERIT_GETTING_USER_DATA,
-            );
-            Some(ProgressBar::spinner())
-        } else {
-            None
-        };
+        self.state_sender
+            .send_replace(FetchState::GetUserInherit(GetUserInheritState::GetInherit));
 
         let user_inherit = self
             .client
             .get_user_inherit(inherit_id, password, execute)
             .await?;
 
-        if let Some(spinner) = spinner {
-            spinner.finish_and_clear();
-        }
+        self.state_sender
+            .send_replace(FetchState::GetUserInherit(GetUserInheritState::Finish));
 
         Ok(user_inherit)
     }
@@ -415,39 +408,13 @@ impl<P: UrlProvider> Fetcher<P> {
         credential: String,
         out_dir: impl AsRef<Path>,
     ) -> Result<PathBuf, Error> {
-        let operation_start = Instant::now();
-        let show_progress = !self.config.quiet;
-
-        // create assetbundle spinner
-        let spinner = if show_progress {
-            println!(
-                "{}{}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::INHERIT_LOGGING_IN,
-            );
-            Some(ProgressBar::spinner())
-        } else {
-            None
-        };
-
+        self.state_sender
+            .send_replace(FetchState::WriteUserSaveData(WriteUserSaveDataState::Login));
         self.client.user_login(user_id, credential).await?;
-
-        if let Some(spinner) = spinner {
-            spinner.finish_and_clear();
-        }
-
-        let spinner = if show_progress {
-            println!(
-                "{}{}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::INHERIT_GETTING_SAVE_DATA,
-            );
-            Some(ProgressBar::spinner())
-        } else {
-            None
-        };
+        self.state_sender
+            .send_replace(FetchState::WriteUserSaveData(
+                WriteUserSaveDataState::GetSaveData,
+            ));
 
         // convert retrieve save data & convert to json
         let save_data = self.client.get_user_suite(user_id).await?;
@@ -461,27 +428,10 @@ impl<P: UrlProvider> Fetcher<P> {
         let out_path = out_dir.as_ref().join(format!("{}.json", user_id));
         write_file(&out_path, &json_save_data).await?;
 
-        if let Some(spinner) = spinner {
-            spinner.finish_and_clear();
-        }
-
-        if show_progress {
-            println!();
-            println!(
-                "✅ {}Save data written to '{}' in {:?}. {}",
-                color::SUCCESS.render_fg(),
-                out_path.to_string_lossy(),
-                Instant::now().duration_since(operation_start),
-                color::TEXT.render_fg()
-            );
-            println!();
-            println!(
-                "⚠️ {}{}{}",
-                color::WARNING.render_fg(),
-                strings::INHERIT_FINISH_WARNING,
-                color::TEXT.render_fg()
-            );
-        }
+        self.state_sender
+            .send_replace(FetchState::WriteUserSaveData(
+                WriteUserSaveDataState::Finish,
+            ));
 
         Ok(out_path)
     }

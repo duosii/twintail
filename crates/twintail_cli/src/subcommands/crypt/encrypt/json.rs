@@ -30,7 +30,7 @@ pub async fn encrypt_json(args: EncryptJsonArgs) -> Result<(), Error> {
         .quiet(quiet)
         .build();
 
-    let encrypter = Encrypter::new(config);
+    let (encrypter, _) = Encrypter::new(config);
 
     let in_path = args.in_path;
     let out_path = args.out_path.unwrap_or(in_path.clone());

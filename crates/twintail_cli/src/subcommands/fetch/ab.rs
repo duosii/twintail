@@ -3,7 +3,8 @@ use std::path::Path;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, BufReader},
-    sync::watch::Receiver, time::Instant,
+    sync::watch::Receiver,
+    time::Instant,
 };
 use twintail_common::{
     color,

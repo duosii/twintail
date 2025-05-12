@@ -36,7 +36,7 @@ pub async fn encrypt_ab(args: EncryptAbArgs) -> Result<(), Error> {
         })
         .build();
 
-    let encrypter = Encrypter::new(config);
+    let (encrypter, _) = Encrypter::new(config);
 
     encrypter
         .encrypt_ab_path(args.in_path, args.out_path)
