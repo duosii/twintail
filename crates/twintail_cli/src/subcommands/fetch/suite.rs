@@ -106,14 +106,12 @@ async fn watch_fetch_suite_state(mut receiver: Receiver<FetchState>) {
 }
 
 pub async fn fetch_suite(args: SuiteArgs) -> Result<(), Error> {
-    let quiet = args.quiet;
     // create fetcher
     let fetch_config = FetchConfig::builder(args.version, args.hash)
         .platform(args.platform)
         .server(args.server)
         .retry(args.retry)
         .decrypt(!args.encrypt)
-        .quiet(quiet)
         .pretty_json(!args.compact)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
@@ -121,7 +119,7 @@ pub async fn fetch_suite(args: SuiteArgs) -> Result<(), Error> {
         .build();
     let (mut fetcher, state_recv) = Fetcher::new(fetch_config).await?;
 
-    let state_watcher = if quiet {
+    let state_watcher = if args.quiet {
         None
     } else {
         Some(tokio::spawn(watch_fetch_suite_state(state_recv)))

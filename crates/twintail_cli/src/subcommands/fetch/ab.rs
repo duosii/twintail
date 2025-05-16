@@ -175,13 +175,11 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), Error> {
         .build();
 
     // build config
-    let quiet = args.quiet;
     let fetch_config = FetchConfig::builder(args.version, args.hash)
         .platform(args.platform)
         .server(args.server)
         .retry(args.retry)
         .decrypt(!args.encrypt)
-        .quiet(quiet)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })
@@ -191,7 +189,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), Error> {
     let (mut fetcher, state_recv) = Fetcher::new(fetch_config).await?;
 
     // spawn thread for watching state_recv
-    let state_watcher = if quiet {
+    let state_watcher = if args.quiet {
         None
     } else {
         Some(tokio::spawn(watch_fetch_ab_state(state_recv)))
@@ -199,7 +197,7 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), Error> {
 
     // download assetbundles
     let download_start = Instant::now();
-    let (success_count, total_file_count) = fetcher
+    let (success_count, total_file_count, _) = fetcher
         .download_ab(args.out_dir, download_ab_config)
         .await?;
 

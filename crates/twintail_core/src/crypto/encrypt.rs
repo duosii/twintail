@@ -19,9 +19,7 @@ use crate::{
 
 use super::{CryptState, EncryptSuitePathState, EncryptSuiteValuesState};
 
-mod strings {
-    pub const SUITE_ENCRYPTED_FILE_NAME: &str = "_suitemasterfile";
-}
+const SUITE_ENCRYPTED_FILE_NAME: &str = "_suitemasterfile";
 
 // When deserializing suitemaster files, we have to be careful to deserialize floats as f32
 // Otherwise the game will not be able to properly read the values and crash/error.
@@ -122,10 +120,9 @@ impl Encrypter {
         // write to out directory
         for (n, result) in chunks.into_iter().enumerate() {
             let bytes = result?;
-            let out_path =
-                out_path
-                    .as_ref()
-                    .join(format!("{:02}{}", n, strings::SUITE_ENCRYPTED_FILE_NAME));
+            let out_path = out_path
+                .as_ref()
+                .join(format!("{:02}{}", n, SUITE_ENCRYPTED_FILE_NAME));
             write_file(&out_path, &bytes).await?;
         }
 
@@ -247,7 +244,7 @@ mod tests {
         "#
         .as_bytes();
 
-        let (encrypter, _) = Encrypter::new(CryptConfig::builder().quiet(true).build());
+        let (encrypter, _) = Encrypter::new(CryptConfig::default());
         encrypter.encrypt_json_bytes_aes_msgpack(json_bytes)?;
 
         Ok(())
@@ -275,7 +272,7 @@ mod tests {
         )
         .await?;
 
-        let (encrypter, _) = Encrypter::new(CryptConfig::builder().quiet(true).build());
+        let (encrypter, _) = Encrypter::new(CryptConfig::default());
         encrypter
             .encrypt_file_aes_msgpack(in_path, out_path)
             .await?;
@@ -305,7 +302,7 @@ mod tests {
         .await?;
 
         // encrypt to out_dir
-        let (encrypter, _) = Encrypter::new(CryptConfig::builder().quiet(true).build());
+        let (encrypter, _) = Encrypter::new(CryptConfig::default());
         encrypter
             .encrypt_suite_path(in_dir.path(), out_dir.path(), split_count)
             .await?;
@@ -341,12 +338,7 @@ mod tests {
 
         // encrypt in_file
         let out_file_path = in_dir.path().join("file");
-        let (encrypter, _) = Encrypter::new(
-            CryptConfig::builder()
-                .quiet(true)
-                .aes(aes_config.clone())
-                .build(),
-        );
+        let (encrypter, _) = Encrypter::new(CryptConfig::builder().aes(aes_config.clone()).build());
         encrypter
             .encrypt_file_aes_msgpack(&in_file_path, &out_file_path)
             .await?;

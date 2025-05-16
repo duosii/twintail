@@ -74,18 +74,16 @@ async fn watch_decrypt_ab_state(mut receiver: Receiver<CryptState>) {
 
 /// Decrypts a file/folder using the provided arguments.
 pub async fn decrypt_ab(args: DecryptAbArgs) -> Result<(), Error> {
-    let quiet = args.quiet;
     let crypt_start_instant = Instant::now();
 
     let config = CryptConfig::builder()
         .recursive(args.recursive)
-        .quiet(quiet)
         .map(args.concurrent, |config, val| config.concurrency(val))
         .build();
 
     let (decrypter, state_recv) = Decrypter::new(config);
 
-    let state_watcher = if quiet {
+    let state_watcher = if args.quiet {
         None
     } else {
         Some(tokio::spawn(watch_decrypt_ab_state(state_recv)))

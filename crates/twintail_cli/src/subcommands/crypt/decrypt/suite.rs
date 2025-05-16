@@ -75,12 +75,10 @@ async fn watch_decrypt_suite_state(mut receiver: Receiver<CryptState>) {
 /// Decrypts encrypted suitemaster files into individual .json files.
 pub async fn decrypt_suite(args: DecryptSuiteArgs) -> Result<(), Error> {
     let decrypt_start_instant = Instant::now();
-    let quiet = args.quiet;
 
     let config = CryptConfig::builder()
         .recursive(args.recursive)
         .server(args.server)
-        .quiet(quiet)
         .pretty_json(!args.compact)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
@@ -89,7 +87,7 @@ pub async fn decrypt_suite(args: DecryptSuiteArgs) -> Result<(), Error> {
 
     let (decrypter, state_recv) = Decrypter::new(config);
 
-    let state_watcher = if quiet {
+    let state_watcher = if args.quiet {
         None
     } else {
         Some(tokio::spawn(watch_decrypt_suite_state(state_recv)))

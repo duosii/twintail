@@ -238,15 +238,15 @@ impl<P: UrlProvider> Fetcher<P> {
 
     /// Downloads assetbundles to the provided ``out_dir`` using the provided config.
     ///
-    /// Returns the number of files that were successfully downloaded and
-    /// the number of files that were available for download.
+    /// Returns:
+    /// - the number of files that were successfully downloaded
+    /// - the number of files that were available for download
+    /// - a Vec of errors that ocurred when downloading specific files
     pub async fn download_ab(
         &mut self,
         out_dir: impl AsRef<Path>,
         config: DownloadAbConfig,
-    ) -> Result<(usize, usize), Error> {
-        let show_progress = !self.config.quiet;
-
+    ) -> Result<(usize, usize, Vec<Error>), Error> {
         // create assetbundle spinner
         self.state_sender
             .send_replace(FetchState::DownloadAb(DownloadAbState::RetrieveAbInfo));
@@ -310,14 +310,14 @@ impl<P: UrlProvider> Fetcher<P> {
             }
         }
 
-        if config.filter.is_some() && bundle_name_re.is_none() && show_progress {
+        if config.filter.is_some() && bundle_name_re.is_none() {
             self.state_sender
                 .send_replace(FetchState::DownloadAb(DownloadAbState::InvalidRegEx));
         }
 
         // make sure the out_dir has enough space
         let available_space = fs2::available_space(out_dir)?;
-        if (total_bundle_size > available_space) && show_progress {
+        if total_bundle_size > available_space {
             return Err(Error::NotEnoughSpace(format!(
                 "this operation requires {} of free space. you only have {} available.",
                 format_size(total_bundle_size, DECIMAL),
@@ -353,25 +353,21 @@ impl<P: UrlProvider> Fetcher<P> {
             .await;
 
         // count successes & print errors if debug is enabled
-        let success_count = download_results
-            .iter()
-            .filter(|&result| {
-                if let Err(err) = result {
-                    if show_progress {
-                        println!("assetbundle download error: {:?}", err);
-                    }
-                    false
-                } else {
-                    true
-                }
-            })
-            .count();
+        let download_errors: Vec<_> = download_results
+            .into_iter()
+            .filter_map(|result| result.err())
+            .collect();
 
         // stop progress bar & print the sucess message
         self.state_sender
             .send_replace(FetchState::DownloadAb(DownloadAbState::Finish));
 
-        Ok((success_count, to_download_bundles.len()))
+        let total_bundle_count = to_download_bundles.len();
+        Ok((
+            total_bundle_count - download_errors.len(),
+            total_bundle_count,
+            download_errors,
+        ))
     }
 
     /// Performs a request to get a user's account inherit details.

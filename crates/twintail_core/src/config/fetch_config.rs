@@ -14,7 +14,6 @@ use super::OptionalBuilder;
 // constants
 const DEFAULT_SERVER: Server = Server::Japan;
 const DEFAULT_RECURSIVE: bool = false;
-const DEFAULT_QUIET: bool = false;
 const DEFAULT_PLATFORM: Platform = Platform::Android;
 const DEFAULT_RETRY: usize = 3;
 const DEFAULT_DECRYPT: bool = true;
@@ -25,7 +24,6 @@ pub struct FetchConfig<P: UrlProvider> {
     pub jwt_key: Hmac<Sha256>,
     pub concurrency: usize,
     pub recursive: bool,
-    pub quiet: bool,
     pub version: String,
     pub hash: String,
     pub platform: Platform,
@@ -62,7 +60,6 @@ impl<P: UrlProvider> FetchConfig<P> {
             url_provider,
             concurrency: available_parallelism(),
             recursive: DEFAULT_RECURSIVE,
-            quiet: DEFAULT_QUIET,
             version,
             hash,
             platform: DEFAULT_PLATFORM,
@@ -133,15 +130,6 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
     /// By default, this is false.
     pub fn recursive(mut self, recursive: bool) -> Self {
         self.config.recursive = recursive;
-        self
-    }
-
-    /// When performing operations, whether to print information
-    /// regarding the progress of the operation.
-    ///
-    /// By default, this is false.
-    pub fn quiet(mut self, quiet: bool) -> Self {
-        self.config.quiet = quiet;
         self
     }
 

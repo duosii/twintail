@@ -75,11 +75,9 @@ async fn watch_encrypt_ab_state(mut receiver: Receiver<CryptState>) {
 /// Encrypts a file/folder using the provided arguments.
 pub async fn encrypt_ab(args: EncryptAbArgs) -> Result<(), Error> {
     let crypt_start = Instant::now();
-    let quiet = args.quiet;
 
     let config = CryptConfig::builder()
         .recursive(args.recursive)
-        .quiet(quiet)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })
@@ -87,7 +85,7 @@ pub async fn encrypt_ab(args: EncryptAbArgs) -> Result<(), Error> {
 
     let (encrypter, state_recv) = Encrypter::new(config);
 
-    let state_watcher = if quiet {
+    let state_watcher = if args.quiet {
         None
     } else {
         Some(tokio::spawn(watch_encrypt_ab_state(state_recv)))

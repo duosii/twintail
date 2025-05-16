@@ -25,10 +25,7 @@ pub struct DecryptJsonArgs {
 pub async fn decrypt_json(args: DecryptJsonArgs) -> Result<(), Error> {
     let quiet = args.quiet;
 
-    let config = CryptConfig::builder()
-        .server(args.server)
-        .quiet(quiet)
-        .build();
+    let config = CryptConfig::builder().server(args.server).build();
 
     let (decrypter, _) = Decrypter::new(config);
 

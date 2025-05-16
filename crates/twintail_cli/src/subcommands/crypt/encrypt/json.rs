@@ -25,10 +25,7 @@ pub struct EncryptJsonArgs {
 pub async fn encrypt_json(args: EncryptJsonArgs) -> Result<(), Error> {
     let quiet = args.quiet;
 
-    let config = CryptConfig::builder()
-        .server(args.server)
-        .quiet(quiet)
-        .build();
+    let config = CryptConfig::builder().server(args.server).build();
 
     let (encrypter, _) = Encrypter::new(config);
 

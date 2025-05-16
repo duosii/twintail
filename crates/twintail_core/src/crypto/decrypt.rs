@@ -202,12 +202,7 @@ mod tests {
         write(&in_file_path, file_json_aes_msgpack_bytes).await?;
 
         let out_file_path = in_dir.path().join("file.json");
-        let (decrypter, _) = Decrypter::new(
-            CryptConfig::builder()
-                .quiet(true)
-                .aes(aes_config.clone())
-                .build(),
-        );
+        let (decrypter, _) = Decrypter::new(CryptConfig::builder().aes(aes_config.clone()).build());
         decrypter
             .decrypt_file_aes_msgpack(&in_file_path, &out_file_path)
             .await?;

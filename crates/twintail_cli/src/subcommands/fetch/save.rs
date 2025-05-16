@@ -111,7 +111,6 @@ pub async fn fetch_save(args: SaveArgs) -> Result<(), Error> {
     // create fetcher
     let fetch_config = FetchConfig::builder(args.version, args.hash)
         .server(args.server)
-        .quiet(args.quiet)
         .pretty_json(!args.compact)
         .build();
     let (mut fetcher, state_recv) = Fetcher::new(fetch_config).await?;

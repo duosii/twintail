@@ -66,7 +66,6 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), Error> {
     let fetch_config = FetchConfig::builder(args.version, args.hash)
         .platform(args.platform)
         .server(args.server)
-        .quiet(args.quiet)
         .build();
     let (mut fetcher, _) = Fetcher::new(fetch_config).await?;
 
