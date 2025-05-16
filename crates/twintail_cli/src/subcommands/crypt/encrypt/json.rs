@@ -1,8 +1,8 @@
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 use clap::Args;
 use tokio::time::Instant;
-use twintail_common::{color, models::enums::Server};
-use twintail_core::{config::crypt_config::CryptConfig, encrypt::Encrypter};
+use twintail_common::models::enums::Server;
+use twintail_core::{config::crypt_config::CryptConfig, crypto::encrypt::Encrypter};
 
 #[derive(Debug, Args)]
 pub struct EncryptJsonArgs {

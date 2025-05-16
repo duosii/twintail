@@ -3,7 +3,6 @@ use std::time::Duration;
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
 use twintail_common::{
-    color,
     models::enums::{Platform, Server},
     utils::progress::ProgressBar,
 };
@@ -12,7 +11,7 @@ use twintail_core::{
     fetch::{DownloadSuiteState, FetchState, Fetcher},
 };
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct SuiteArgs {
@@ -62,7 +61,7 @@ pub struct SuiteArgs {
 async fn watch_fetch_suite_state(mut receiver: Receiver<FetchState>) {
     let mut progress_bar: Option<indicatif::ProgressBar> = None;
     while receiver.changed().await.is_ok() {
-        let fetch_state = receiver.borrow_and_update().clone();
+        let fetch_state = *receiver.borrow_and_update();
         if let FetchState::DownloadSuite(download_suite_state) = fetch_state {
             match download_suite_state {
                 DownloadSuiteState::Communicate => {

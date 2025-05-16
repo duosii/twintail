@@ -1,13 +1,13 @@
 use clap::Args;
 use std::io::{Write, stdin, stdout};
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{color, models::enums::Server, utils::progress::ProgressBar};
+use twintail_common::{models::enums::Server, utils::progress::ProgressBar};
 use twintail_core::{
     config::fetch_config::FetchConfig,
     fetch::{FetchState, Fetcher, GetUserInheritState, WriteUserSaveDataState},
 };
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct SaveArgs {
@@ -49,12 +49,11 @@ pub struct SaveArgs {
 
 /// Watches a [`tokio::sync::watch::Receiver`] for state changes.
 ///
-/// Prints information related to the progress of a suite download.
+/// Prints information related to the progress of a save fetch.
 async fn watch_fetch_save_state(mut receiver: Receiver<FetchState>) {
     let mut progress_bar: Option<indicatif::ProgressBar> = None;
     while receiver.changed().await.is_ok() {
-        let fetch_state = receiver.borrow_and_update().clone();
-        match fetch_state {
+        match *receiver.borrow_and_update() {
             FetchState::GetUserInherit(GetUserInheritState::GetInherit) => {
                 println!(
                     "{}{}{}",
@@ -73,7 +72,7 @@ async fn watch_fetch_save_state(mut receiver: Receiver<FetchState>) {
                 if let Some(spinner) = &progress_bar {
                     spinner.finish_and_clear();
                 }
-                
+
                 println!(
                     "{}{}{}",
                     color::TEXT_VARIANT.render_fg(),

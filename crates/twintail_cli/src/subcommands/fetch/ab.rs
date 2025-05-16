@@ -7,7 +7,6 @@ use tokio::{
     time::Instant,
 };
 use twintail_common::{
-    color,
     models::enums::{Platform, Server},
     utils::progress::ProgressBar,
 };
@@ -17,7 +16,7 @@ use twintail_core::{
 };
 use twintail_sekai::models::AssetbundleInfo;
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct AbArgs {
@@ -83,7 +82,7 @@ pub struct AbArgs {
 async fn watch_fetch_ab_state(mut receiver: Receiver<FetchState>) {
     let mut progress_bar: Option<indicatif::ProgressBar> = None;
     while receiver.changed().await.is_ok() {
-        let fetch_state = receiver.borrow_and_update().clone();
+        let fetch_state = *receiver.borrow_and_update();
         if let FetchState::DownloadAb(download_ab_state) = fetch_state {
             match download_ab_state {
                 DownloadAbState::RetrieveAbInfo => {

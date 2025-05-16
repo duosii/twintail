@@ -1,12 +1,12 @@
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{color, models::enums::Server, utils::progress::ProgressBar};
+use twintail_common::{models::enums::Server, utils::progress::ProgressBar};
 use twintail_core::{
     config::{OptionalBuilder, crypt_config::CryptConfig},
-    encrypt::{EncryptState, EncryptSuitePathState, EncryptSuiteValuesState, Encrypter},
+    crypto::{CryptState, EncryptSuitePathState, EncryptSuiteValuesState, encrypt::Encrypter},
 };
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct EncryptSuiteArgs {
@@ -39,17 +39,12 @@ pub struct EncryptSuiteArgs {
 
 /// Watches a [`tokio::sync::watch::Receiver`] for state changes.
 ///
-/// Prints information related to the progress of a suite download.
-async fn watch_encrypt_suite_state(mut receiver: Receiver<EncryptState>) {
+/// Prints information related to the progress of a suite encrypt.
+async fn watch_encrypt_suite_state(mut receiver: Receiver<CryptState>) {
     let mut progress_bar: Option<indicatif::ProgressBar> = None;
     while receiver.changed().await.is_ok() {
-        let fetch_state = receiver.borrow_and_update().clone();
-        match fetch_state {
-            EncryptState::SuitePath(EncryptSuitePathState::Process) => {
-                if let Some(spinner) = &progress_bar {
-                    spinner.finish_and_clear();
-                }
-
+        match *receiver.borrow_and_update() {
+            CryptState::EncryptSuitePath(EncryptSuitePathState::Process) => {
                 println!(
                     "{}{}{}",
                     color::TEXT_VARIANT.render_fg(),
@@ -58,11 +53,11 @@ async fn watch_encrypt_suite_state(mut receiver: Receiver<EncryptState>) {
                 );
                 progress_bar = Some(ProgressBar::spinner())
             }
-            EncryptState::SuiteValues(EncryptSuiteValuesState::SerializeStart(count)) => {
+            CryptState::EncryptSuiteValues(EncryptSuiteValuesState::SerializeStart(count)) => {
                 if let Some(spinner) = &progress_bar {
                     spinner.finish_and_clear();
                 }
-                
+
                 println!(
                     "{}{}{}",
                     color::TEXT_VARIANT.render_fg(),
@@ -71,12 +66,12 @@ async fn watch_encrypt_suite_state(mut receiver: Receiver<EncryptState>) {
                 );
                 progress_bar = Some(ProgressBar::progress(count as u64))
             }
-            EncryptState::SuiteValues(EncryptSuiteValuesState::Serialize) => {
+            CryptState::EncryptSuiteValues(EncryptSuiteValuesState::Serialize(delta)) => {
                 if let Some(progress) = &progress_bar {
-                    progress.inc(1);
+                    progress.inc(delta as u64);
                 }
             }
-            EncryptState::SuiteValues(EncryptSuiteValuesState::Finish) => {
+            CryptState::EncryptSuiteValues(EncryptSuiteValuesState::Finish) => {
                 if let Some(progress) = &progress_bar {
                     progress.finish_and_clear();
                 }

@@ -5,13 +5,10 @@ use tokio::{
     fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
-use twintail_common::{
-    color,
-    models::enums::{Platform, Server},
-};
+use twintail_common::models::enums::{Platform, Server};
 use twintail_core::{config::fetch_config::FetchConfig, fetch::Fetcher};
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct AbInfoArgs {

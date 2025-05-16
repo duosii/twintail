@@ -1,20 +1,15 @@
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::path::{Path, PathBuf};
 
 use futures::{StreamExt, stream};
 use serde_json::Value;
 use tokio::{
     fs::{File, read},
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncWrite},
-    time::Instant,
+    sync::watch::{self, Receiver, Sender},
 };
 use twintail_common::{
-    color,
     crypto::{aes::AesConfig, aes_msgpack},
     models::enums::CryptOperation,
-    utils::progress::ProgressBar,
 };
 
 use crate::{
@@ -24,22 +19,26 @@ use crate::{
     fs::{extract_suitemaster_file, scan_path, write_file},
 };
 
-mod strings {
-    pub const PROCESS: &str = "Decrypting";
-    pub const PROCESSED: &str = "decrypted";
-    pub const SUITE_DECRYPTING: &str = "Decrypting suitemaster files...";
-}
+use super::{CryptState, DecryptSuitePathState};
 
 /// A struct responsible for decryption.
 #[derive(Default)]
 pub struct Decrypter {
     config: CryptConfig,
+    state_sender: Sender<CryptState>,
 }
 
 impl Decrypter {
     /// Creates a new Decrypter that will use the provided configuration.
-    pub fn new(config: CryptConfig) -> Self {
-        Self { config }
+    pub fn new(config: CryptConfig) -> (Self, Receiver<CryptState>) {
+        let (state_sender, state_receiver) = watch::channel(CryptState::default());
+        (
+            Self {
+                config,
+                state_sender,
+            },
+            state_receiver,
+        )
     }
 
     /// Decrypts msgpack + AES encrypted bytes into a type that implements the trait [`serde::de::DeserializeOwned`].
@@ -83,27 +82,24 @@ impl Decrypter {
     /// If out_path is not provided, files will be decrypted in-place.
     /// Truncates and overwrites the file(s) at out_path.
     ///
-    /// Returns the number of files that were successfully decrypted.
+    /// Returns the number of files that were successfully decrypted and the total number of files that were processed.
     pub async fn decrypt_ab_path(
         &self,
         in_path: impl AsRef<Path>,
         out_path: Option<impl AsRef<Path>>,
-    ) -> Result<usize, Error> {
+    ) -> Result<(usize, usize), Error> {
         let crypt_config = AbCryptArgs {
             recursive: self.config.recursive,
-            quiet: self.config.quiet,
             concurrent: self.config.concurrency,
             operation: CryptOperation::Decrypt,
-            strings: assetbundle::AbCryptStrings {
-                process: strings::PROCESS,
-                processed: strings::PROCESSED,
-            },
         };
-
-        let files_changed =
-            assetbundle::crypt_path(in_path.as_ref(), out_path.as_ref(), &crypt_config).await?;
-
-        Ok(files_changed)
+        assetbundle::crypt_path(
+            in_path.as_ref(),
+            out_path.as_ref(),
+            &crypt_config,
+            &self.state_sender,
+        )
+        .await
     }
 
     /// Decrypts suitemaster files located at ``in_path`` into .json files at ``out_path``.
@@ -115,22 +111,15 @@ impl Decrypter {
         out_path: impl AsRef<Path>,
     ) -> Result<usize, Error> {
         // get paths that we need to decrypt
-        let decrypt_start = Instant::now();
         let to_decrypt_paths = scan_path(in_path.as_ref(), self.config.recursive).await?;
         let out_path = out_path.as_ref();
-        let show_progress = !self.config.quiet;
 
         // create decrypt progress bar
-        if show_progress {
-            println!(
-                "{}[1/1] {}{}",
-                color::TEXT_VARIANT.render_fg(),
-                color::TEXT.render_fg(),
-                strings::SUITE_DECRYPTING,
-            );
-        }
-        let decrypt_progress = ProgressBar::progress(to_decrypt_paths.len() as u64);
-        decrypt_progress.enable_steady_tick(Duration::from_millis(200));
+        let total_path_count = to_decrypt_paths.len();
+        self.state_sender
+            .send_replace(CryptState::DecryptSuitePath(DecryptSuitePathState::Start(
+                total_path_count,
+            )));
 
         // begin decrypting
         let pretty_json = self.config.pretty_json;
@@ -143,45 +132,24 @@ impl Decrypter {
                     pretty_json,
                 )
                 .await;
-                if show_progress {
-                    decrypt_progress.inc(1)
-                }
+                self.state_sender
+                    .send_replace(CryptState::DecryptSuitePath(DecryptSuitePathState::Decrypt));
                 decrypt_result
             })
             .buffer_unordered(self.config.concurrency)
             .collect()
             .await;
 
-        decrypt_progress.finish_and_clear();
-
-        // count the number of successes
-        let success_count = decrypt_results
-            .iter()
-            .filter(|&result| {
-                if let Err(err) = result {
-                    if show_progress {
-                        println!("suite decrypt error: {:?}", err);
-                    }
-                    false
-                } else {
-                    true
-                }
-            })
-            .count();
+        // return with an error if there are any errors in decrypt_results;
+        decrypt_results
+            .into_iter()
+            .collect::<Result<Vec<_>, Error>>()?;
 
         // print the result
-        if show_progress {
-            println!(
-                "{}Successfully {} {} files in {:?}.{}",
-                color::SUCCESS.render_fg(),
-                strings::PROCESSED,
-                success_count,
-                Instant::now().duration_since(decrypt_start),
-                color::TEXT.render_fg(),
-            );
-        }
+        self.state_sender
+            .send_replace(CryptState::DecryptSuitePath(DecryptSuitePathState::Finish));
 
-        Ok(success_count)
+        Ok(total_path_count)
     }
 }
 
@@ -234,13 +202,13 @@ mod tests {
         write(&in_file_path, file_json_aes_msgpack_bytes).await?;
 
         let out_file_path = in_dir.path().join("file.json");
-        let encrypter = Decrypter::new(
+        let (decrypter, _) = Decrypter::new(
             CryptConfig::builder()
                 .quiet(true)
                 .aes(aes_config.clone())
                 .build(),
         );
-        encrypter
+        decrypter
             .decrypt_file_aes_msgpack(&in_file_path, &out_file_path)
             .await?;
 

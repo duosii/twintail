@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
-    sync::watch::{self, Receiver},
+    sync::watch,
 };
 use twintail_common::{
     crypto::{aes::AesConfig, aes_msgpack},
@@ -17,39 +17,10 @@ use crate::{
     fs::{deserialize_files, scan_path, write_file},
 };
 
+use super::{CryptState, EncryptSuitePathState, EncryptSuiteValuesState};
+
 mod strings {
-    pub const PROCESS: &str = "Encrypting";
-    pub const PROCESSED: &str = "encrypted";
     pub const SUITE_ENCRYPTED_FILE_NAME: &str = "_suitemasterfile";
-}
-
-#[derive(Clone, Copy)]
-pub enum EncryptSuiteValuesState {
-    /// the provided number of encrypted files are being serialized
-    SerializeStart(usize),
-    /// a value was serialized
-    Serialize,
-    /// suite files have finished being encrypted
-    Finish,
-}
-
-#[derive(Clone, Copy)]
-pub enum EncryptSuitePathState {
-    /// files are being processed
-    Process,
-}
-
-#[derive(Clone, Copy)]
-pub enum EncryptState {
-    NoState,
-    SuiteValues(EncryptSuiteValuesState),
-    SuitePath(EncryptSuitePathState),
-}
-
-impl Default for EncryptState {
-    fn default() -> Self {
-        Self::NoState
-    }
 }
 
 // When deserializing suitemaster files, we have to be careful to deserialize floats as f32
@@ -57,16 +28,15 @@ impl Default for EncryptState {
 type DeserializedSuiteFile = (String, ValueF32);
 
 /// A struct responsible for encryption.
-#[derive(Default)]
 pub struct Encrypter {
     config: CryptConfig,
-    state_sender: watch::Sender<EncryptState>,
+    state_sender: watch::Sender<CryptState>,
 }
 
 impl Encrypter {
     /// Creates a new Encrypter that will use the provided configuration.
-    pub fn new(config: CryptConfig) -> (Self, Receiver<EncryptState>) {
-        let (state_sender, recv) = watch::channel(EncryptState::default());
+    pub fn new(config: CryptConfig) -> (Self, watch::Receiver<CryptState>) {
+        let (state_sender, recv) = watch::channel(CryptState::NoState);
         (
             Self {
                 config,
@@ -90,27 +60,25 @@ impl Encrypter {
     /// If out_path is not provided, files will be encrypted in-place.
     /// Truncates and overwrites the file(s) at out_path.
     ///
-    /// Returns the number of files that were successfully encrypted.
+    /// Returns the number of files that were successfully encrypted and the total number of files that were processed.
     pub async fn encrypt_ab_path(
         &self,
         in_path: impl AsRef<Path>,
         out_path: Option<impl AsRef<Path>>,
-    ) -> Result<usize, Error> {
+    ) -> Result<(usize, usize), Error> {
         let crypt_config = AbCryptArgs {
             recursive: self.config.recursive,
-            quiet: self.config.quiet,
             concurrent: self.config.concurrency,
             operation: CryptOperation::Encrypt,
-            strings: assetbundle::AbCryptStrings {
-                process: strings::PROCESS,
-                processed: strings::PROCESSED,
-            },
         };
 
-        let files_changed =
-            assetbundle::crypt_path(in_path.as_ref(), out_path.as_ref(), &crypt_config).await?;
-
-        Ok(files_changed)
+        assetbundle::crypt_path(
+            in_path.as_ref(),
+            out_path.as_ref(),
+            &crypt_config,
+            &self.state_sender,
+        )
+        .await
     }
 
     pub async fn encrypt_suite_values(
@@ -120,20 +88,10 @@ impl Encrypter {
         split: usize,
     ) -> Result<usize, Error> {
         // split into chunks and serialize
-        self.state_sender.send_replace(EncryptState::SuiteValues(
-            EncryptSuiteValuesState::SerializeStart(values.len()),
-        ));
-        // let serialize_progress = if !self.config.quiet {
-        //     println!(
-        //         "{}{}{}",
-        //         color::TEXT_VARIANT.render_fg(),
-        //         color::TEXT.render_fg(),
-        //         strings::SUITE_SAVING,
-        //     );
-        //     Some(ProgressBar::progress(to_serialize_count as u64))
-        // } else {
-        //     None
-        // };
+        self.state_sender
+            .send_replace(CryptState::EncryptSuiteValues(
+                EncryptSuiteValuesState::SerializeStart(values.len()),
+            ));
 
         let deserialized_len = values.len();
         let chunk_size = {
@@ -145,9 +103,10 @@ impl Encrypter {
             .chunks(chunk_size)
             .par_bridge()
             .map(|chunk| {
-                self.state_sender.send_replace(EncryptState::SuiteValues(
-                    EncryptSuiteValuesState::Serialize,
-                ));
+                self.state_sender
+                    .send_replace(CryptState::EncryptSuiteValues(
+                        EncryptSuiteValuesState::Serialize(chunk_size),
+                    ));
                 match serialize_values(chunk, &self.config.aes_config) {
                     Ok(bytes) => Ok(bytes),
                     Err(err) => Err(err),
@@ -156,7 +115,9 @@ impl Encrypter {
             .collect();
 
         self.state_sender
-            .send_replace(EncryptState::SuiteValues(EncryptSuiteValuesState::Finish));
+            .send_replace(CryptState::EncryptSuiteValues(
+                EncryptSuiteValuesState::Finish,
+            ));
 
         // write to out directory
         for (n, result) in chunks.into_iter().enumerate() {
@@ -186,18 +147,7 @@ impl Encrypter {
         split: usize,
     ) -> Result<usize, Error> {
         self.state_sender
-            .send_replace(EncryptState::SuitePath(EncryptSuitePathState::Process));
-        // let deserialize_progress = if !self.config.quiet {
-        //     println!(
-        //         "{}{}{}",
-        //         color::TEXT_VARIANT.render_fg(),
-        //         color::TEXT.render_fg(),
-        //         strings::SUITE_PROCESSING,
-        //     );
-        //     Some(ProgressBar::spinner())
-        // } else {
-        //     None
-        // };
+            .send_replace(CryptState::EncryptSuitePath(EncryptSuitePathState::Process));
 
         // deserialize all paths to [`serde_json::Value`]s.
         let deserialized_files: Vec<(_, ValueF32)> = self.deserialize_suite_path(in_path).await?;

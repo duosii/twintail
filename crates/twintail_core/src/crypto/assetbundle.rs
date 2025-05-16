@@ -7,14 +7,16 @@ use futures::{StreamExt, stream};
 use tokio::{
     fs::File,
     io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt, BufReader},
-    time::Instant,
+    sync::watch::{self},
 };
-use twintail_common::{color, models::enums::CryptOperation, utils::progress::ProgressBar};
+use twintail_common::models::enums::CryptOperation;
 
 use crate::{
     Error,
     fs::{scan_path, write_file},
 };
+
+use super::{CryptAssetbundlePathState, CryptState};
 
 const UNITY_ASSETBUNDLE_MAGIC: &[u8] = b"\x55\x6e\x69\x74\x79\x46";
 const SEKAI_ASSETBUNDLE_MAGIC: &[u8] = b"\x10\x00\x00\x00";
@@ -23,17 +25,10 @@ const CHUNK_SIZE: usize = 65536;
 const HEADER_BLOCK_SIZE: usize = 8;
 const DECRYPT_SIZE: usize = 5;
 
-pub struct AbCryptStrings {
-    pub process: &'static str,
-    pub processed: &'static str,
-}
-
 pub struct AbCryptArgs {
     pub recursive: bool,
-    pub quiet: bool,
     pub concurrent: usize,
     pub operation: CryptOperation,
-    pub strings: AbCryptStrings,
 }
 
 /// Flips specific bytes in the provided reader's header into the provided buffer.
@@ -157,45 +152,21 @@ pub async fn crypt_file(
 /// If out_path is not provided, files will be encrypted/decrypted in-place.
 /// Truncates and overwrites the file(s) at out_path.
 ///
-/// Returns the number of files that were encrypted or decrypted.
+/// Returns the number of files that were encrypted or decrypted and the total number of files that were processed.
 pub async fn crypt_path(
     in_path: impl AsRef<Path>,
     out_path: Option<impl AsRef<Path>>,
     crypt_args: &AbCryptArgs,
-) -> Result<usize, Error> {
+    state_sender: &watch::Sender<CryptState>,
+) -> Result<(usize, usize), Error> {
     let in_path = in_path.as_ref();
     let out_path = out_path.as_ref().map(|p| p.as_ref()).unwrap_or(in_path);
     let in_place = in_path == out_path;
-    let show_progress = !crypt_args.quiet;
 
     // get the paths we need to encrypt
-    let scan_progress_bar = if show_progress {
-        println!(
-            "{}[1/2] {}Scanning files...",
-            color::TEXT_VARIANT.render_fg(),
-            color::TEXT.render_fg()
-        );
-        Some(ProgressBar::spinner())
-    } else {
-        None
-    };
+    state_sender.send_replace(CryptState::AssetbundlePath(CryptAssetbundlePathState::Scan));
 
     let in_paths = scan_path(in_path, crypt_args.recursive).await?;
-
-    if let Some(scan_progress) = scan_progress_bar {
-        scan_progress.finish_and_clear();
-    }
-
-    // start processing these files
-    let crypt_start = Instant::now();
-    if show_progress {
-        println!(
-            "{}[2/2] {}{} files...",
-            color::TEXT_VARIANT.render_fg(),
-            color::TEXT.render_fg(),
-            crypt_args.strings.process,
-        );
-    }
 
     // compute paths
     let in_out_paths: Vec<(PathBuf, PathBuf)> = in_paths
@@ -212,15 +183,17 @@ pub async fn crypt_path(
         .collect();
 
     // asynchronously encrypt the files
-    let total_path_count = in_out_paths.len() as u64;
-    let progress_bar = ProgressBar::progress(total_path_count);
+    let total_path_count = in_out_paths.len();
+    state_sender.send_replace(CryptState::AssetbundlePath(
+        CryptAssetbundlePathState::Crypt(total_path_count),
+    ));
 
     let decrypt_result: Vec<Result<(), Error>> = stream::iter(&in_out_paths)
         .map(|paths| async {
             let result = crypt_file(&paths.0, &paths.1, &crypt_args.operation).await;
-            if show_progress {
-                progress_bar.inc(1);
-            }
+            state_sender.send_replace(CryptState::AssetbundlePath(
+                CryptAssetbundlePathState::CryptFile,
+            ));
             result
         })
         .buffer_unordered(crypt_args.concurrent)
@@ -231,19 +204,12 @@ pub async fn crypt_path(
         .filter(|&result| result.is_ok())
         .count();
 
-    // stop progress bar & print the sucess message
-    progress_bar.finish_and_clear();
-    println!(
-        "{}Successfully {} {} / {} files in {:?}.{}",
-        color::SUCCESS.render_fg(),
-        crypt_args.strings.processed,
-        success_count,
-        total_path_count,
-        Instant::now().duration_since(crypt_start),
-        color::TEXT.render_fg(),
-    );
+    // stop progress bar & print the success message
+    state_sender.send_replace(CryptState::AssetbundlePath(
+        CryptAssetbundlePathState::Finish,
+    ));
 
-    Ok(success_count)
+    Ok((success_count, total_path_count))
 }
 
 #[cfg(test)]
