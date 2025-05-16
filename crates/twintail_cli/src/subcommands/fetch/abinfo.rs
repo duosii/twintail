@@ -5,13 +5,10 @@ use tokio::{
     fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
-use twintail_common::{
-    color,
-    models::enums::{Platform, Server},
-};
+use twintail_common::models::enums::{Platform, Server};
 use twintail_core::{config::fetch_config::FetchConfig, fetch::Fetcher};
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct AbInfoArgs {
@@ -69,9 +66,8 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), Error> {
     let fetch_config = FetchConfig::builder(args.version, args.hash)
         .platform(args.platform)
         .server(args.server)
-        .quiet(args.quiet)
         .build();
-    let mut fetcher = Fetcher::new(fetch_config).await?;
+    let (mut fetcher, _) = Fetcher::new(fetch_config).await?;
 
     let assetbundle_info = fetcher
         .get_ab_info(args.asset_version, args.host_hash)

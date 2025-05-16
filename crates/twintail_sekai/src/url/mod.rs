@@ -44,8 +44,13 @@ pub trait UrlProvider: Clone {
     fn user(&self) -> String;
     fn system(&self) -> String;
     fn user_auth(&self, user_id: usize) -> String;
-    fn assetbundle_info(&self, host_hash: &str, asset_version: &str, platform: &Platform)
-    -> String;
+    fn assetbundle_info(
+        &self,
+        host_hash: &str,
+        asset_version: &str,
+        asset_hash: &str,
+        platform: &Platform,
+    ) -> String;
     fn assetbundle(&self, host_hash: &str, assetbundle_path: &str) -> String;
     fn assetbundle_path(
         &self,

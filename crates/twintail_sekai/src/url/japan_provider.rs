@@ -45,13 +45,15 @@ impl UrlProvider for JapanUrlProvider {
         &self,
         host_hash: &str,
         asset_version: &str,
+        asset_hash: &str,
         platform: &Platform,
     ) -> String {
         format!(
-            "https://production-{}-assetbundle-info.sekai.colorfulpalette.org{}/{}/os/{}",
+            "https://production-{}-assetbundle-info.sekai.colorfulpalette.org{}/{}/{}/os/{}",
             host_hash,
             urls::assetbundle::INFO,
             asset_version,
+            asset_hash,
             platform.to_string()
         )
     }

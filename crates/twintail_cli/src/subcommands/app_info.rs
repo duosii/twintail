@@ -2,10 +2,9 @@ use std::time::Duration;
 
 use clap::Args;
 use indicatif::ProgressBar;
-use twintail_common::color;
 use twintail_core::apk_extractor::ApkExtractor;
 
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct AppInfoArgs {

@@ -1,17 +1,17 @@
+mod color;
 mod error;
 mod strings;
 mod subcommands;
 
+use color::get_clap_styles;
 pub use error::Error;
 
-use anstyle::{AnsiColor, Color};
-use clap::{Parser, Subcommand, builder::Styles};
+use clap::{Parser, Subcommand};
 use subcommands::{
     app_info,
     crypt::{decrypt, encrypt},
     fetch,
 };
-use twintail_common::color;
 
 #[derive(Debug, Subcommand)]
 enum Commands {
@@ -54,27 +54,4 @@ pub async fn run() -> Result<(), clap::Error> {
     }
 
     Ok(())
-}
-
-/// Get styles for ``clap``.
-const USAGE: Color = Color::Ansi(AnsiColor::BrightBlue);
-const HEADER: Color = Color::Ansi(AnsiColor::BrightBlue);
-const LITERAL: Color = Color::Ansi(AnsiColor::BrightCyan);
-const INVALID: Color = Color::Ansi(AnsiColor::Red);
-const VALID: Color = Color::Ansi(AnsiColor::BrightCyan);
-const PLACEHOLDER: Color = Color::Ansi(AnsiColor::White);
-fn get_clap_styles() -> Styles {
-    Styles::styled()
-        .usage(anstyle::Style::new().bold().fg_color(Some(USAGE)))
-        .header(anstyle::Style::new().bold().fg_color(Some(HEADER)))
-        .literal(anstyle::Style::new().fg_color(Some(LITERAL)))
-        .invalid(anstyle::Style::new().bold().fg_color(Some(INVALID)))
-        .error(anstyle::Style::new().bold().fg_color(Some(color::ERROR)))
-        .valid(
-            anstyle::Style::new()
-                .bold()
-                .underline()
-                .fg_color(Some(VALID)),
-        )
-        .placeholder(anstyle::Style::new().fg_color(Some(PLACEHOLDER)))
 }

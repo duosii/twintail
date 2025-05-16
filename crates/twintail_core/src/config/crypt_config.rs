@@ -6,14 +6,12 @@ use twintail_common::{
 // constants
 const DEFAULT_SERVER: Server = Server::Japan;
 const DEFAULT_RECURSIVE: bool = false;
-const DEFAULT_QUIET: bool = false;
 
 /// Configuration for encryption and decryption.
 pub struct CryptConfig {
     pub aes_config: AesConfig,
     pub concurrency: usize,
     pub recursive: bool,
-    pub quiet: bool,
     pub pretty_json: bool,
 }
 
@@ -23,7 +21,6 @@ impl Default for CryptConfig {
             aes_config: DEFAULT_SERVER.get_aes_config(),
             concurrency: available_parallelism(),
             recursive: DEFAULT_RECURSIVE,
-            quiet: DEFAULT_QUIET,
             pretty_json: false,
         }
     }
@@ -75,15 +72,6 @@ impl CryptConfigBuilder {
     /// By default, this is false.
     pub fn recursive(mut self, recursive: bool) -> Self {
         self.config.recursive = recursive;
-        self
-    }
-
-    /// When performing operations, whether to print information
-    /// regarding the progress of the operation.
-    ///
-    /// By default, this is false.
-    pub fn quiet(mut self, quiet: bool) -> Self {
-        self.config.quiet = quiet;
         self
     }
 

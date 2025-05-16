@@ -253,6 +253,7 @@ impl<T: UrlProvider> SekaiClient<T> {
     pub async fn get_assetbundle_info(
         &self,
         asset_version: &str,
+        asset_hash: &str,
         asstbundle_host_hash: &str,
     ) -> Result<AssetbundleInfo, Error> {
         let request = self
@@ -260,6 +261,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             .get(self.url_provider.assetbundle_info(
                 asstbundle_host_hash,
                 asset_version,
+                asset_hash,
                 &self.app.platform,
             ))
             .headers(self.headers.get_map());

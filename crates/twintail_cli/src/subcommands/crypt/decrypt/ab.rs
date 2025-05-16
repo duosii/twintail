@@ -1,8 +1,10 @@
-use crate::Error;
+use crate::{Error, color, strings};
 use clap::Args;
+use tokio::{sync::watch::Receiver, time::Instant};
+use twintail_common::utils::progress::ProgressBar;
 use twintail_core::{
     config::{OptionalBuilder, crypt_config::CryptConfig},
-    decrypt::Decrypter,
+    crypto::{CryptAssetbundlePathState, CryptState, decrypt::Decrypter},
 };
 
 #[derive(Debug, Args)]
@@ -26,19 +28,83 @@ pub struct DecryptAbArgs {
     pub out_path: Option<String>,
 }
 
+/// Watches a [`tokio::sync::watch::Receiver`] for state changes.
+///
+/// Prints information related to the progress of an assetbundle decrypt.
+async fn watch_decrypt_ab_state(mut receiver: Receiver<CryptState>) {
+    let mut progress_bar: Option<indicatif::ProgressBar> = None;
+    while receiver.changed().await.is_ok() {
+        match *receiver.borrow_and_update() {
+            CryptState::AssetbundlePath(CryptAssetbundlePathState::Scan) => {
+                println!(
+                    "{}[1/2] {}Scanning files...",
+                    color::TEXT_VARIANT.render_fg(),
+                    color::TEXT.render_fg()
+                );
+                progress_bar = Some(ProgressBar::spinner())
+            }
+            CryptState::AssetbundlePath(CryptAssetbundlePathState::Crypt(file_count)) => {
+                if let Some(spinner) = &progress_bar {
+                    spinner.finish_and_clear();
+                }
+
+                println!(
+                    "{}[2/2] {}{} files...",
+                    color::TEXT_VARIANT.render_fg(),
+                    color::TEXT.render_fg(),
+                    strings::crypto::decrypt::PROCESS,
+                );
+                progress_bar = Some(ProgressBar::progress(file_count as u64))
+            }
+            CryptState::AssetbundlePath(CryptAssetbundlePathState::CryptFile) => {
+                if let Some(progress) = &progress_bar {
+                    progress.inc(1);
+                }
+            }
+            CryptState::AssetbundlePath(CryptAssetbundlePathState::Finish) => {
+                if let Some(progress) = &progress_bar {
+                    progress.finish_and_clear();
+                }
+                break;
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Decrypts a file/folder using the provided arguments.
 pub async fn decrypt_ab(args: DecryptAbArgs) -> Result<(), Error> {
+    let crypt_start_instant = Instant::now();
+
     let config = CryptConfig::builder()
         .recursive(args.recursive)
-        .quiet(args.quiet)
         .map(args.concurrent, |config, val| config.concurrency(val))
         .build();
 
-    let decrypter = Decrypter::new(config);
+    let (decrypter, state_recv) = Decrypter::new(config);
 
-    decrypter
+    let state_watcher = if args.quiet {
+        None
+    } else {
+        Some(tokio::spawn(watch_decrypt_ab_state(state_recv)))
+    };
+
+    let (decrypt_count, total_file_count) = decrypter
         .decrypt_ab_path(args.in_path, args.out_path)
         .await?;
+
+    if let Some(watcher) = state_watcher {
+        watcher.await?;
+        println!(
+            "{}Successfully {} {} / {} files in {:?}.{}",
+            color::SUCCESS.render_fg(),
+            strings::crypto::encrypt::PROCESSED,
+            decrypt_count,
+            total_file_count,
+            Instant::now().duration_since(crypt_start_instant),
+            color::TEXT.render_fg(),
+        );
+    }
 
     Ok(())
 }

@@ -12,4 +12,3 @@ thiserror.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 indicatif.workspace = true
-anstyle.workspace = true

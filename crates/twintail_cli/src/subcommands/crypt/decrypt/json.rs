@@ -1,8 +1,8 @@
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 use clap::Args;
 use tokio::time::Instant;
-use twintail_common::{color, models::enums::Server};
-use twintail_core::{config::crypt_config::CryptConfig, decrypt::Decrypter};
+use twintail_common::models::enums::Server;
+use twintail_core::{config::crypt_config::CryptConfig, crypto::decrypt::Decrypter};
 
 #[derive(Debug, Args)]
 pub struct DecryptJsonArgs {
@@ -25,12 +25,9 @@ pub struct DecryptJsonArgs {
 pub async fn decrypt_json(args: DecryptJsonArgs) -> Result<(), Error> {
     let quiet = args.quiet;
 
-    let config = CryptConfig::builder()
-        .server(args.server)
-        .quiet(quiet)
-        .build();
+    let config = CryptConfig::builder().server(args.server).build();
 
-    let decrypter = Decrypter::new(config);
+    let (decrypter, _) = Decrypter::new(config);
 
     let in_path = args.in_path;
     let out_path = args.out_path.unwrap_or(in_path.clone());

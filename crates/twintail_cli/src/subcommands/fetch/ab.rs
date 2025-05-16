@@ -3,15 +3,20 @@ use std::path::Path;
 use tokio::{
     fs::File,
     io::{AsyncReadExt, BufReader},
+    sync::watch::Receiver,
+    time::Instant,
 };
-use twintail_common::models::enums::{Platform, Server};
+use twintail_common::{
+    models::enums::{Platform, Server},
+    utils::progress::ProgressBar,
+};
 use twintail_core::{
     config::{OptionalBuilder, download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
-    fetch::Fetcher,
+    fetch::{DownloadAbState, FetchState, Fetcher},
 };
 use twintail_sekai::models::AssetbundleInfo;
 
-use crate::Error;
+use crate::{Error, color, strings};
 
 #[derive(Debug, Args)]
 pub struct AbArgs {
@@ -71,6 +76,62 @@ pub struct AbArgs {
     pub out_dir: String,
 }
 
+/// Watches a [`tokio::sync::watch::Receiver`] for DownloadSuite state changes.
+///
+/// Prints information related to the progress of a suite download.
+async fn watch_fetch_ab_state(mut receiver: Receiver<FetchState>) {
+    let mut progress_bar: Option<indicatif::ProgressBar> = None;
+    while receiver.changed().await.is_ok() {
+        let fetch_state = *receiver.borrow_and_update();
+        if let FetchState::DownloadAb(download_ab_state) = fetch_state {
+            match download_ab_state {
+                DownloadAbState::RetrieveAbInfo => {
+                    println!(
+                        "{}[1/2] {}{}",
+                        color::TEXT_VARIANT.render_fg(),
+                        color::TEXT.render_fg(),
+                        strings::command::RETRIEVING_AB_INFO,
+                    );
+                    progress_bar = Some(ProgressBar::spinner());
+                }
+                DownloadAbState::InvalidRegEx => {
+                    println!(
+                        "{}{}{}",
+                        color::ERROR.render_fg(),
+                        strings::command::INVALID_RE,
+                        color::TEXT.render_fg()
+                    )
+                }
+                DownloadAbState::DownloadStart(total_bytes) => {
+                    if let Some(spinner) = &progress_bar {
+                        spinner.finish_and_clear();
+                    }
+
+                    println!(
+                        "{}[2/2] {}{}",
+                        color::TEXT_VARIANT.render_fg(),
+                        color::TEXT.render_fg(),
+                        strings::command::DOWNLOADING,
+                    );
+
+                    progress_bar = Some(ProgressBar::download(total_bytes));
+                }
+                DownloadAbState::FileDownload(file_size_bytes) => {
+                    if let Some(progress) = &progress_bar {
+                        progress.inc(file_size_bytes);
+                    }
+                }
+                DownloadAbState::Finish => {
+                    if let Some(progress) = &progress_bar {
+                        progress.finish_and_clear();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /// Reads and deserializes an assetbundle info from a .json file.
 async fn read_assetbundle_info(path: &str) -> Result<AssetbundleInfo, Error> {
     // read file
@@ -119,19 +180,39 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), Error> {
         .server(args.server)
         .retry(args.retry)
         .decrypt(!args.encrypt)
-        .quiet(args.quiet)
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })
         .build();
 
     // create fetcher
-    let mut fetcher = Fetcher::new(fetch_config).await?;
+    let (mut fetcher, state_recv) = Fetcher::new(fetch_config).await?;
+
+    // spawn thread for watching state_recv
+    let state_watcher = if args.quiet {
+        None
+    } else {
+        Some(tokio::spawn(watch_fetch_ab_state(state_recv)))
+    };
 
     // download assetbundles
-    fetcher
+    let download_start = Instant::now();
+    let (success_count, total_file_count, _) = fetcher
         .download_ab(args.out_dir, download_ab_config)
         .await?;
+
+    if let Some(watcher) = state_watcher {
+        watcher.await?;
+        println!(
+            "{}Successfully {} {} / {} files in {:?}{}",
+            color::SUCCESS.render_fg(),
+            strings::command::DOWNLOADED,
+            success_count,
+            total_file_count,
+            Instant::now().duration_since(download_start),
+            color::TEXT.render_fg(),
+        );
+    }
 
     Ok(())
 }

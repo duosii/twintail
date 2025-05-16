@@ -1,8 +1,8 @@
-use crate::{Error, strings};
+use crate::{Error, color, strings};
 use clap::Args;
 use tokio::time::Instant;
-use twintail_common::{color, models::enums::Server};
-use twintail_core::{config::crypt_config::CryptConfig, encrypt::Encrypter};
+use twintail_common::models::enums::Server;
+use twintail_core::{config::crypt_config::CryptConfig, crypto::encrypt::Encrypter};
 
 #[derive(Debug, Args)]
 pub struct EncryptJsonArgs {
@@ -25,12 +25,9 @@ pub struct EncryptJsonArgs {
 pub async fn encrypt_json(args: EncryptJsonArgs) -> Result<(), Error> {
     let quiet = args.quiet;
 
-    let config = CryptConfig::builder()
-        .server(args.server)
-        .quiet(quiet)
-        .build();
+    let config = CryptConfig::builder().server(args.server).build();
 
-    let encrypter = Encrypter::new(config);
+    let (encrypter, _) = Encrypter::new(config);
 
     let in_path = args.in_path;
     let out_path = args.out_path.unwrap_or(in_path.clone());
