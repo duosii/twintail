@@ -2,25 +2,6 @@
 # twintail 使用ガイド
 以下はtwintailの使用方法についての簡単なガイドです。
 
-## アプリバージョンとアプリハッシュ
-一部のコマンドではゲームのアプリバージョンとハッシュの指定が必要です。
-ゲームアプリが更新されるたびに、これらの値は変更されます。
-
-このガイドの最終更新時点での最新のアプリハッシュは以下の通りです。
-| サーバー | バージョン | ハッシュ |
-| ------ | ------- | ---- |
-| 日本  | ``5.1.0`` | ``cf3ff961-ca94-a787-1038-9a0fc8809b37``
-| グローバル | ``3.3.0`` | ``5191cce5-d594-4432-8f0d-5bea1dbff5cf``
-
-### 最新のアプリバージョンとハッシュの取得方法
-上記の表の値が古くなっている場合、twintailの``app-info``コマンドを使用して最新の値を取得できます。
-1. 希望するサーバーのAndroid APKファイルを入手します。
-2. app-infoコマンドを使用してAPKファイルからアプリのバージョンとハッシュを抽出します。
-   ```
-   twintail app-info latest-japan.apk
-   ```
-3. twintailが出力した値を使用します。
-
 ## サーバーの選択
 一部のコマンドではゲームサーバーの指定が必要です。
 
@@ -37,9 +18,8 @@
 
 twintailの``fetch ab``コマンドを使用してこれらのアセットをダウンロードできます。
 ```
-twintail fetch ab --version <app_version> --hash <app_hash> assetbundles
+twintail fetch ab assetbundles
 ```
-- ``<app_version>``と``<app_hash>``を[上記](#アプリバージョンとアプリハッシュ)で取得した値に置き換えてください。
 - これにより、最新のアセットバージョンのすべてのアセットが``assetbundles``という名前のフォルダにダウンロードされます。
 - アセットを別の場所に保存したい場合は、``assetbundles``を希望の保存先パスに置き換えてください。
 
@@ -50,9 +30,8 @@ Suitemasterファイルは、アクティブなイベントやキャラクター
 
 twintailの``fetch suite``コマンドを使用してこれらのファイルをダウンロードできます。
 ```
-twintail fetch suite --version <app_version> --hash <app_hash> suitemaster_files
+twintail fetch suite suitemaster_files
 ```
-- ``<app_version>``と``<app_hash>``を[上記](#アプリバージョンとアプリハッシュ)で取得した値に置き換えてください。
 - これにより、最新のアセットバージョンのすべてのsuitemasterファイルが``suitemaster_files``という名前のフォルダにダウンロードされます。
 - ファイルを別の場所に保存したい場合は、``suitemaster_files``を希望の保存先パスに置き換えてください。
 
@@ -63,9 +42,8 @@ twintail fetch suite --version <app_version> --hash <app_hash> suitemaster_files
 
 twintailの``fetch ab-info``コマンドを使用してこのファイルをダウンロードできます。
 ```
-twintail fetch ab-info --version <app_version> --hash <app_hash>
+twintail fetch ab-info
 ```
-- ``<app_version>``と``<app_hash>``を[上記](#アプリバージョンとアプリハッシュ)で取得した値に置き換えてください。
 - これにより、コマンドを実行した場所に最新のアセットバージョンの名前（例：``4.1.0.10.json``）を持つ新しい``.json``ファイルが作成されます。
 
 より詳細な使用方法については、このコマンドの[コマンドリファレンス](../commands/jp.md#fetch-ab-info)を参照してください。
@@ -86,10 +64,9 @@ twintail fetch ab-info --version <app_version> --hash <app_hash>
 
 twintailの``fetch save``コマンドを使用してこのファイルをダウンロードできます。
 ```
-twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+twintail fetch save --id <transfer_id> --password <transfer_password>
 ```
 - ``<transfer_id>``と``<transfer_password>``を、上記で取得した値に置き換えてください。
-- ``<app_version>``と``<app_hash>``を、[前述の手順](#アプリバージョンとアプリハッシュ)で取得した値に置き換えてください。
 
 セーブデータのダウンロードが完了すると、一時的に元のデバイスからアカウントにログインできなくなります。
 

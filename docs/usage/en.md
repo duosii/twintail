@@ -2,25 +2,6 @@
 # twintail Usage Guide
 The following is a quick guide on how to use twintail.
 
-## App Version and App Hash
-Some commands will require you to provide the game's app version and hash.
-Any time the game's app receives an update, these values will change.
-
-As of the last time this guide was updated, these were the latest app hashes.
-| Server | Version | Hash |
-| ------ | ------- | ---- |
-| Japan  | ``5.1.0`` | ``cf3ff961-ca94-a787-1038-9a0fc8809b37``
-| Global | ``3.3.0`` | ``5191cce5-d594-4432-8f0d-5bea1dbff5cf``
-
-### Getting the most recent app version and hash
-If the values in the table above are outdated, you can get the latest ones using twintail's ``app-info`` command.
-1. Acquire a copy of the Android APK for the server of your choice.
-2. Use the app-info command to extract the app's version and hash from the APK file.
-   ```
-   twintail app-info latest-japan.apk
-   ```
-3. Use the values that twintail outputs.
-
 ## Server Selection
 Some commands will require you to specify a game server.
 
@@ -37,9 +18,8 @@ Assetbundles are the game's main type of assets, containing everything from musi
 
 You can use twintail's ``fetch ab`` command to download these assets.
 ```
-twintail fetch ab --version <app_version> --hash <app_hash> assetbundles
+twintail fetch ab assetbundles
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will download all assets for the most recent asset version to a folder named ``assetbundles``
 - If you want the assets to go to a different location, replace ``assetbundles`` with the path to your desired location.
 
@@ -50,9 +30,8 @@ Suitemaster files are used by the game to know what events are active and what s
 
 You can use twintail's ``fetch suite`` command to download these files.
 ```
-twintail fetch suite --version <app_version> --hash <app_hash> suitemaster_files
+twintail fetch suite suitemaster_files
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will download all suitemaster files for the most recent asset version to a folder named ``suitemaster_files``
 - If you want the files to go to a different location, replace ``suitemaster_files`` with the path to your desired location.
 
@@ -63,9 +42,8 @@ The assetbundle info file is what tells the game what assetbundles are currently
 
 You can use twintail's ``fetch ab-info`` command to download this file.
 ```
-twintail fetch ab-info --version <app_version> --hash <app_hash>
+twintail fetch ab-info
 ```
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [above](#app-version-and-app-hash).
 - This will create a new ``.json`` file in the location you ran the command with the name of the latest asset version (i.e. ``4.1.0.10.json``)
 
 For more in-depth usage details, you can go to the [commands reference](../commands/en.md#fetch-ab-info) for this command.
@@ -86,10 +64,9 @@ In order to use this command, you will first have to start an account transfer p
 
 You can use twintail's ``fetch save`` command to download this file.
 ```
-twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+twintail fetch save --id <transfer_id> --password <transfer_password>
 ```
 - Replace ``<transfer_id>`` and ``<transfer_password>`` with the values the game gave you directly above.
-- Replace ``<app_version>`` and ``<app_hash>`` with the values you acquired [before](#app-version-and-app-hash).
 
 After completing the save download, you will temporarily not be able to login to your account from the device you had it on originally.
 

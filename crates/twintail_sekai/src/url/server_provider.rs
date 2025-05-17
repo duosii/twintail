@@ -112,6 +112,13 @@ impl UrlProvider for ServerUrlProvider {
             Self::Global(provider) => provider.user_suite(user_id),
         }
     }
+
+    fn apphash(&self) -> String {
+        match self {
+            Self::Japan(provider) => provider.apphash(),
+            Self::Global(provider) => provider.apphash(),
+        }
+    }
 }
 
 impl From<Server> for ServerUrlProvider {

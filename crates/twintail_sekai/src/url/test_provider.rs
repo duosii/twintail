@@ -94,4 +94,8 @@ impl UrlProvider for TestUrlProvider {
     fn user_suite(&self, user_id: usize) -> String {
         format!("{}{}/{}", self.host, urls::game::USER_SUITE, user_id)
     }
+
+    fn apphash(&self) -> String {
+        format!("{}/apphash", self.host)
+    }
 }

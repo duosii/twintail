@@ -3,11 +3,14 @@ use std::time::Duration;
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
 use twintail_common::{
-    models::enums::{Platform, Server},
+    models::{
+        OptionalBuilder,
+        enums::{Platform, Server},
+    },
     utils::progress::ProgressBar,
 };
 use twintail_core::{
-    config::{OptionalBuilder, fetch_config::FetchConfig},
+    config::fetch_config::FetchConfig,
     fetch::{DownloadSuiteState, FetchState, Fetcher},
 };
 
@@ -17,11 +20,11 @@ use crate::{Error, color, strings};
 pub struct SuiteArgs {
     /// The version of the game app get the suitemaster files for
     #[arg(short, long)]
-    pub version: String,
+    pub version: Option<String>,
 
     /// The app hash to get the suitemaster files for
     #[arg(long)]
-    pub hash: String,
+    pub hash: Option<String>,
 
     /// The device platform to get the suitemaster files for
     #[arg(short, long, value_enum, default_value_t = Platform::Android)]
@@ -107,12 +110,14 @@ async fn watch_fetch_suite_state(mut receiver: Receiver<FetchState>) {
 
 pub async fn fetch_suite(args: SuiteArgs) -> Result<(), Error> {
     // create fetcher
-    let fetch_config = FetchConfig::builder(args.version, args.hash)
+    let fetch_config = FetchConfig::builder()
         .platform(args.platform)
         .server(args.server)
         .retry(args.retry)
         .decrypt(!args.encrypt)
         .pretty_json(!args.compact)
+        .map(args.hash, |config, hash| config.hash(hash))
+        .map(args.version, |config, version| config.version(version))
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })

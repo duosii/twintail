@@ -9,6 +9,9 @@ pub enum Error {
     #[error("serde_plain error: {0}")]
     SerdePlain(#[from] serde_plain::Error),
 
+    #[error("serde_json error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
+
     #[error("rmp_serde decode error: {0}")]
     RmpSerdeDecode(#[from] rmp_serde::decode::Error),
 

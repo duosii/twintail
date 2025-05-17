@@ -62,4 +62,5 @@ pub trait UrlProvider: Clone {
     fn suitemasterfile(&self, file_path: &str) -> String;
     fn inherit(&self, inherit_id: &str, execute: bool) -> String;
     fn user_suite(&self, user_id: usize) -> String;
+    fn apphash(&self) -> String;
 }

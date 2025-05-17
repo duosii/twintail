@@ -1,6 +1,7 @@
-use super::OptionalBuilder;
 use twintail_common::{
-    crypto::aes::AesConfig, models::enums::Server, utils::available_parallelism,
+    crypto::aes::AesConfig,
+    models::{OptionalBuilder, enums::Server},
+    utils::available_parallelism,
 };
 
 // constants
