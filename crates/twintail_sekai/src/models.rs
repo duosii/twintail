@@ -135,3 +135,9 @@ pub struct UserInheritJWT {
     pub inherit_id: String,
     pub password: String,
 }
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub struct AppInfo {
+    pub app_hash: String,
+    pub app_version: String,
+}

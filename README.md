@@ -31,3 +31,6 @@ To run tests:
 ```
 cargo test --workspace
 ```
+
+## Acknowledgements
+- [mos9527](https://github.com/mos9527): Created the [sekai-apphash](https://github.com/mos9527/sekai-apphash) repository that app versions and hashes are pulled from.

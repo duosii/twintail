@@ -29,5 +29,8 @@ cargo run --release
 
 テストを実行する場合：
 ```
-cargo test
+cargo test --workspace
 ```
+
+## 謝辞
+- [mos9527](https://github.com/mos9527)氏: アプリバージョンとハッシュ値を取得している[sekai-apphash](https://github.com/mos9527/sekai-apphash)リポジトリを作成されました。

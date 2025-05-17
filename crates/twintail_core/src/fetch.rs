@@ -8,9 +8,10 @@ use humansize::{DECIMAL, format_size};
 use regex::Regex;
 use tokio::{fs::create_dir_all, sync::watch};
 use tokio_retry::{Retry, strategy::FixedInterval};
+use twintail_common::models::OptionalBuilder;
 use twintail_sekai::{
     models::{Assetbundle, AssetbundleInfo, UserInherit},
-    sekai_client::SekaiClient,
+    sekai_client::{SekaiClient, SekaiClientBuilder},
     url::UrlProvider,
 };
 
@@ -91,14 +92,15 @@ pub struct Fetcher<P: UrlProvider> {
 impl<P: UrlProvider> Fetcher<P> {
     /// Create a new Fetcher using the provided [`crate::config::fetch_config::FetchConfig`]
     pub async fn new(config: FetchConfig<P>) -> Result<(Self, watch::Receiver<FetchState>), Error> {
-        let client = SekaiClient::new_with_url_provider(
-            config.version.clone(),
-            config.hash.clone(),
-            config.platform,
+        let client = SekaiClientBuilder::new(
             config.aes_config.clone(),
             config.jwt_key.clone(),
+            config.platform,
             config.url_provider.clone(),
         )
+        .map(config.hash.clone(), |builder, hash| builder.app_hash(hash))
+        .map(config.version.clone(), |builder, hash| builder.app_version(hash))
+        .build()
         .await?;
 
         let (state_sender, recv) = watch::channel(FetchState::NoState);
@@ -301,7 +303,7 @@ impl<P: UrlProvider> Fetcher<P> {
                 let out_path = out_dir.join(self.client.url_provider.assetbundle_path(
                     &ab_path_args.asset_version,
                     &ab_path_args.asset_hash,
-                    &self.client.app.platform,
+                    &self.client.platform,
                     &bundle.bundle_name,
                 ));
 

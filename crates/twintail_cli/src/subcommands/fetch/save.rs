@@ -1,7 +1,7 @@
 use clap::Args;
 use std::io::{Write, stdin, stdout};
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{models::enums::Server, utils::progress::ProgressBar};
+use twintail_common::{models::{enums::Server, OptionalBuilder}, utils::progress::ProgressBar};
 use twintail_core::{
     config::fetch_config::FetchConfig,
     fetch::{FetchState, Fetcher, GetUserInheritState, WriteUserSaveDataState},
@@ -13,11 +13,11 @@ use crate::{Error, color, strings};
 pub struct SaveArgs {
     /// The current version of the app where the target account is located
     #[arg(short, long)]
-    pub version: String,
+    pub version: Option<String>,
 
     /// The current hash of the app where the target account is located
     #[arg(long)]
-    pub hash: String,
+    pub hash: Option<String>,
 
     /// The inherit ID that the game generated for you when initiating the account transfer
     #[arg(long)]
@@ -109,9 +109,11 @@ pub async fn fetch_save(args: SaveArgs) -> Result<(), Error> {
     let show_progress = !args.quiet;
 
     // create fetcher
-    let fetch_config = FetchConfig::builder(args.version, args.hash)
+    let fetch_config = FetchConfig::builder()
         .server(args.server)
         .pretty_json(!args.compact)
+        .map(args.hash, |config, hash| config.hash(hash))
+        .map(args.version, |config, version| config.version(version))
         .build();
     let (mut fetcher, state_recv) = Fetcher::new(fetch_config).await?;
 

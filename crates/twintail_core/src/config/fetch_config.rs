@@ -2,14 +2,15 @@ use hmac::Hmac;
 use sha2::Sha256;
 use twintail_common::{
     crypto::aes::AesConfig,
-    models::enums::{Platform, Server},
+    models::{
+        OptionalBuilder,
+        enums::{Platform, Server},
+    },
     utils::available_parallelism,
 };
 use twintail_sekai::url::{
     UrlProvider, japan_provider::JapanUrlProvider, server_provider::ServerUrlProvider,
 };
-
-use super::OptionalBuilder;
 
 // constants
 const DEFAULT_SERVER: Server = Server::Japan;
@@ -24,48 +25,46 @@ pub struct FetchConfig<P: UrlProvider> {
     pub jwt_key: Hmac<Sha256>,
     pub concurrency: usize,
     pub recursive: bool,
-    pub version: String,
-    pub hash: String,
     pub platform: Platform,
     pub retry: usize,
     pub decrypt: bool,
     pub url_provider: P,
     pub pretty_json: bool,
+    pub version: Option<String>,
+    pub hash: Option<String>,
 }
 
 impl FetchConfig<ServerUrlProvider> {
     /// Create a new FetchConfig with the provided version and hash.
     ///
     /// Uses a default Japan url provider.
-    pub fn new(version: String, hash: String) -> Self {
+    pub fn new() -> Self {
         Self::new_with_provider(
-            version,
-            hash,
             ServerUrlProvider::Japan(JapanUrlProvider::default()),
         )
     }
 
     /// Create a default builder for the CryptConfig struct.
-    pub fn builder(version: String, hash: String) -> FetchConfigBuilder<ServerUrlProvider> {
-        FetchConfigBuilder::new(version, hash)
+    pub fn builder() -> FetchConfigBuilder<ServerUrlProvider> {
+        FetchConfigBuilder::new()
     }
 }
 
 impl<P: UrlProvider> FetchConfig<P> {
     /// Create a new FetchConfig with the provided version, hash, and url_provider using default values.
-    pub fn new_with_provider(version: String, hash: String, url_provider: P) -> Self {
+    pub fn new_with_provider(url_provider: P) -> Self {
         Self {
             aes_config: DEFAULT_SERVER.get_aes_config(),
             jwt_key: DEFAULT_SERVER.get_jwt_key(),
             url_provider,
             concurrency: available_parallelism(),
             recursive: DEFAULT_RECURSIVE,
-            version,
-            hash,
             platform: DEFAULT_PLATFORM,
             retry: DEFAULT_RETRY,
             decrypt: DEFAULT_DECRYPT,
             pretty_json: false,
+            version: None,
+            hash: None,
         }
     }
 }
@@ -79,9 +78,9 @@ impl<P: UrlProvider> OptionalBuilder for FetchConfigBuilder<P> {}
 
 impl FetchConfigBuilder<ServerUrlProvider> {
     /// Creates a new FetchConfigBuilder with the provided version and hash
-    pub fn new(version: String, hash: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            config: FetchConfig::new(version, hash),
+            config: FetchConfig::new(),
         }
     }
 }
@@ -137,7 +136,7 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
     ///
     /// This field is required and has no default value.
     pub fn version(mut self, version: String) -> Self {
-        self.config.version = version;
+        self.config.version = Some(version);
         self
     }
 
@@ -145,7 +144,7 @@ impl<P: UrlProvider> FetchConfigBuilder<P> {
     ///
     /// This field is required and has no default value.
     pub fn hash(mut self, hash: String) -> Self {
-        self.config.hash = hash;
+        self.config.hash = Some(hash);
         self
     }
 

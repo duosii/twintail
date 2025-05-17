@@ -93,4 +93,8 @@ impl UrlProvider for GlobalUrlProvider {
     fn user_suite(&self, user_id: usize) -> String {
         format!("{}{}/{}", self.hosts.game, urls::game::USER_SUITE, user_id)
     }
+
+    fn apphash(&self) -> String {
+        "https://raw.githubusercontent.com/mos9527/sekai-apphash/refs/heads/master/en/apphash.json".into()
+    }
 }

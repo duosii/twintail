@@ -1,9 +1,9 @@
 use crate::{Error, color, strings};
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::utils::progress::ProgressBar;
+use twintail_common::{models::OptionalBuilder, utils::progress::ProgressBar};
 use twintail_core::{
-    config::{OptionalBuilder, crypt_config::CryptConfig},
+    config::crypt_config::CryptConfig,
     crypto::{CryptAssetbundlePathState, CryptState, encrypt::Encrypter},
 };
 

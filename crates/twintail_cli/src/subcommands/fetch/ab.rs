@@ -7,11 +7,14 @@ use tokio::{
     time::Instant,
 };
 use twintail_common::{
-    models::enums::{Platform, Server},
+    models::{
+        OptionalBuilder,
+        enums::{Platform, Server},
+    },
     utils::progress::ProgressBar,
 };
 use twintail_core::{
-    config::{OptionalBuilder, download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
+    config::{download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
     fetch::{DownloadAbState, FetchState, Fetcher},
 };
 use twintail_sekai::models::AssetbundleInfo;
@@ -22,7 +25,7 @@ use crate::{Error, color, strings};
 pub struct AbArgs {
     /// The version of the game app to get the assetbundles for
     #[arg(short, long)]
-    pub version: String,
+    pub version: Option<String>,
 
     /// The version of the assets to get. Uses the most recent if not provided
     #[arg(short, long)]
@@ -30,7 +33,7 @@ pub struct AbArgs {
 
     /// The hash of the game app to get the assetbundles for
     #[arg(long)]
-    pub hash: String,
+    pub hash: Option<String>,
 
     /// Part of the URL used to download the assetbundles from. Uses the most recent if not provided
     #[arg(long)]
@@ -175,11 +178,13 @@ pub async fn fetch_ab(args: AbArgs) -> Result<(), Error> {
         .build();
 
     // build config
-    let fetch_config = FetchConfig::builder(args.version, args.hash)
+    let fetch_config = FetchConfig::builder()
         .platform(args.platform)
         .server(args.server)
         .retry(args.retry)
         .decrypt(!args.encrypt)
+        .map(args.hash, |config, hash| config.hash(hash))
+        .map(args.version, |config, version| config.version(version))
         .map(args.concurrent, |config, concurrency| {
             config.concurrency(concurrency)
         })

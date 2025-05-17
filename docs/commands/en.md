@@ -7,32 +7,25 @@ To view all commands that twintail has, run twintail with the ``help`` flag.
 twintail --help
 ```
 
-## App Hash and App Version
-The command examples shown below may include ``<app_version>`` and ``<app_hash>``.
-
-These values should be replaced with real game versions and hashes.
-
-For more information on acquiring these values, view the [usage guide](../usage/en.md#app-version-and-app-hash)
-
 ## ``fetch ab``
 Downloads the game's assets.
 
 ### Examples
 - Download all assets from the Japan server and save them in a folder called ``bundles``.
   ```
-  twintail fetch ab --version <app_version> --hash <app_hash> bundles
+  twintail fetch ab bundles
   ```
 - Download only assets that contain ``scenario`` in their name from the global server.
   ```
-  twintail fetch ab --version <app_version> --hash <app_hash> --filter "scenario" --server global assets
+  twintail fetch ab --filter "scenario" --server global assets
   ```
 - Download assets from the Japan server using an [assetbundle info file](#fetch-ab-info).
   ```
-  twintail fetch ab --version <app_version> --hash <app_hash> --info 4.0.5.10.json --no-update bundles
+  twintail fetch ab --info 4.0.5.10.json --no-update bundles
   ```
 - Download only the differences between the latest asset version and an [assetbundle info file](#fetch-ab-info).
   ```
-  twintail fetch ab --version <app_version> --hash <app_hash> --info 4.0.5.10.json bundles
+  twintail fetch ab --info 4.0.5.10.json bundles
   ```
 
 ## ``fetch ab-info``
@@ -41,7 +34,7 @@ Saves a list of all of the game's assets as a ``json`` file for later use.
 ### Examples
 - Downloads and saves a list of all of the games assets to ``asset_version.json`` where ``asset_version`` is the latest asset version.
   ```
-  fetch ab-info --version <app_version> --hash <app_hash>
+  fetch ab-info
   ```
 
 ## ``fetch suite``
@@ -50,11 +43,11 @@ Downloads suitemaster files.
 ### Examples
 - Download the suitemaster files from the Japan server and save them in a folder called ``suite``.
   ```
-  twintail fetch suite --version <app_version> --hash <app_hash> suite
+  twintail fetch suite suite
   ```
 - Download encrypted suitemaster files from the Japan server and save them in a folder called ``suite_encrypted``.
   ```
-  twintail fetch suite --encrypt --version <app_version> --hash <app_hash> suite_encrypted
+  twintail fetch suite --encrypt suite_encrypted
   ```
 
 ## ``fetch save``
@@ -63,12 +56,12 @@ Downloads a player's save data from the official servers.
 ### Examples
 - Download a player's save data from the Japan server
   ```
-  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password>
+  twintail fetch save --id <transfer_id> --password <transfer_password>
   ```
   - Where ``<transfer_id>`` and ``<transfer_password>`` are the values the game gave you when you began the OS transfer.
 - Download a player's save data from the Global server and save it in a folder called ``saves``.
   ```
-  twintail fetch save --version <app_version> --hash <app_hash> --id <transfer_id> --password <transfer_password> --server global
+  twintail fetch save --id <transfer_id> --password <transfer_password> --server global
   ```
 
 ## ``encrypt ab``

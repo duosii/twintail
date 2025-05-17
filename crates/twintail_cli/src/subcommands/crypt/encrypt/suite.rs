@@ -1,8 +1,8 @@
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{models::enums::Server, utils::progress::ProgressBar};
+use twintail_common::{models::{OptionalBuilder, enums::Server}, utils::progress::ProgressBar};
 use twintail_core::{
-    config::{OptionalBuilder, crypt_config::CryptConfig},
+    config::{crypt_config::CryptConfig},
     crypto::{CryptState, EncryptSuitePathState, EncryptSuiteValuesState, encrypt::Encrypter},
 };
 

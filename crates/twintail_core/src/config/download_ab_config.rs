@@ -1,6 +1,5 @@
 use twintail_sekai::models::AssetbundleInfo;
-
-use super::OptionalBuilder;
+use twintail_common::models::OptionalBuilder;
 
 // constants
 const DEFAULT_UPDATE: bool = false;

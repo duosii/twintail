@@ -5,7 +5,10 @@ use tokio::{
     fs::{File, create_dir_all},
     io::AsyncWriteExt,
 };
-use twintail_common::models::enums::{Platform, Server};
+use twintail_common::models::{
+    OptionalBuilder,
+    enums::{Platform, Server},
+};
 use twintail_core::{config::fetch_config::FetchConfig, fetch::Fetcher};
 
 use crate::{Error, color, strings};
@@ -14,7 +17,7 @@ use crate::{Error, color, strings};
 pub struct AbInfoArgs {
     /// The version of the game app get the assetbundle information for
     #[arg(short, long)]
-    pub version: String,
+    pub version: Option<String>,
 
     /// The version of the assets to get information about. Uses the most recent if not provided
     #[arg(short, long)]
@@ -22,7 +25,7 @@ pub struct AbInfoArgs {
 
     /// The app hash to get the assetbundle information for
     #[arg(long)]
-    pub hash: String,
+    pub hash: Option<String>,
 
     /// Part of the URL used to download the info from. Uses the most recent if not provided
     #[arg(long)]
@@ -63,9 +66,11 @@ pub async fn abinfo(args: AbInfoArgs) -> Result<(), Error> {
     };
 
     // get assetbundle info
-    let fetch_config = FetchConfig::builder(args.version, args.hash)
+    let fetch_config = FetchConfig::builder()
         .platform(args.platform)
         .server(args.server)
+        .map(args.hash, |config, hash| config.hash(hash))
+        .map(args.version, |config, version| config.version(version))
         .build();
     let (mut fetcher, _) = Fetcher::new(fetch_config).await?;
 

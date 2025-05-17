@@ -3,8 +3,8 @@ use crate::{
     Error,
     headers::{header_name, header_value},
     models::{
-        AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse, UserInherit,
-        UserInheritJWT, UserRequest, UserSignup,
+        AppInfo, AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse,
+        UserInherit, UserInheritJWT, UserRequest, UserSignup,
     },
 };
 use hmac::Hmac;
@@ -14,7 +14,7 @@ use serde_json::Value;
 use sha2::Sha256;
 use twintail_common::{
     crypto::{aes::AesConfig, aes_msgpack},
-    models::enums::Platform,
+    models::{OptionalBuilder, enums::Platform},
 };
 
 mod error_string {
@@ -25,58 +25,46 @@ mod error_string {
     pub const FORBIDDEN_ASSETBUNDLE_INFO: &str = "invalid or outdated asset version provided";
     pub const INVALID_INHERIT_CREDENTIALS: &str = "could not find any account with the provided transfer id or password. ensure that both values are correct";
     pub const NOT_FOUND_USER_AUTH: &str = "(404: not found) error when logging in to an account. ensure that the app version and hash values are correct";
-}
-
-/// A simple struct that stores information about the game's app.
-pub struct SekaiApp {
-    pub version: String,
-    pub hash: String,
-    pub platform: Platform,
-}
-
-impl SekaiApp {
-    pub fn new(version: String, hash: String, platform: Platform) -> Self {
-        Self {
-            version,
-            hash,
-            platform,
-        }
-    }
+    pub const GET_APP_INFO: &str = "error when attempting to retrieve the latest app info";
 }
 
 /// An API client that interfaces with the game's servers, providing various functions to query endpoints.
 pub struct SekaiClient<T: UrlProvider> {
-    headers: Headers,
-    client: Client,
     aes_config: AesConfig,
+    app_hash: String,
+    app_version: String,
+    client: Client,
+    headers: Headers,
     jwt_key: Hmac<Sha256>,
+    pub platform: Platform,
     pub url_provider: T,
-    pub app: SekaiApp,
 }
 
 impl<T: UrlProvider> SekaiClient<T> {
     /// Creates a new SekaiClient that uses a specific url provider.
-    pub async fn new_with_url_provider(
-        version: String,
-        hash: String,
-        platform: Platform,
+    pub async fn new(
+        app_hash: String,
+        app_version: String,
         aes_config: AesConfig,
         jwt_key: Hmac<Sha256>,
+        platform: Platform,
         url_provider: T,
     ) -> Result<Self, Error> {
         let headers = Headers::builder()?
-            .version(&version)
-            .hash(&hash)
+            .version(&app_version)
+            .hash(&app_hash)
             .platform(&platform)
             .build()?;
 
         let mut client = Self {
             headers,
             client: Client::new(),
+            platform,
+            app_version,
+            app_hash,
             aes_config,
             jwt_key,
             url_provider,
-            app: SekaiApp::new(version, hash, platform),
         };
 
         // save the cloudfront signature only if required
@@ -132,7 +120,7 @@ impl<T: UrlProvider> SekaiClient<T> {
             .client
             .get(
                 self.url_provider
-                    .game_version(&self.app.version, &self.app.hash),
+                    .game_version(&self.app_version, &self.app_hash),
             )
             .headers(self.headers.get_map());
 
@@ -160,7 +148,7 @@ impl<T: UrlProvider> SekaiClient<T> {
     pub async fn user_signup(&self) -> Result<UserSignup, Error> {
         let request_body = aes_msgpack::into_vec(
             &UserRequest {
-                platform: self.app.platform,
+                platform: self.platform,
                 device_model: header_value::DEVICE_MODEL.into(),
                 operating_system: header_value::OPERATING_SYSTEM.into(),
             },
@@ -262,7 +250,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 asstbundle_host_hash,
                 asset_version,
                 asset_hash,
-                &self.app.platform,
+                &self.platform,
             ))
             .headers(self.headers.get_map());
 
@@ -301,7 +289,7 @@ impl<T: UrlProvider> SekaiClient<T> {
                 &self.url_provider.assetbundle_path(
                     asset_version,
                     asset_hash,
-                    &self.app.platform,
+                    &self.platform,
                     bundle_name,
                 ),
             ))
@@ -438,6 +426,95 @@ impl<T: UrlProvider> SekaiClient<T> {
             Err(err) => Err(Error::InvalidRequest(err.to_string())),
         }
     }
+
+    /// Gets the game's current app hash & app version from
+    /// [https://github.com/mos9527/sekai-apphash]
+    pub async fn get_app_version(url_provider: &T) -> Result<AppInfo, Error> {
+        let request = Client::new().get(url_provider.apphash());
+
+        match request.send().await?.error_for_status() {
+            Ok(response) => {
+                // parse body
+                let bytes = response.bytes().await?;
+                let app_hash = serde_json::from_slice(&bytes)?;
+                Ok(app_hash)
+            }
+            Err(err) => Err(Error::InvalidRequest(format!(
+                "{}: {}",
+                error_string::GET_APP_INFO,
+                err.to_string()
+            ))),
+        }
+    }
+}
+
+pub struct SekaiClientBuilder<T: UrlProvider> {
+    aes_config: AesConfig,
+    app_hash: Option<String>,
+    app_version: Option<String>,
+    jwt_key: Hmac<Sha256>,
+    platform: Platform,
+    url_provider: T,
+}
+
+impl<T: UrlProvider> OptionalBuilder for SekaiClientBuilder<T> {}
+
+impl<T: UrlProvider> SekaiClientBuilder<T> {
+    /// Create a new SekaiClient builder
+    pub fn new(
+        aes_config: AesConfig,
+        jwt_key: Hmac<Sha256>,
+        platform: Platform,
+        url_provider: T,
+    ) -> Self {
+        Self {
+            aes_config,
+            app_hash: None,
+            app_version: None,
+            jwt_key,
+            platform,
+            url_provider,
+        }
+    }
+
+    /// Set the SekaiClient's app hash
+    pub fn app_hash(mut self, hash: String) -> Self {
+        self.app_hash = Some(hash);
+        self
+    }
+
+    /// Set the SekaiClient's app version
+    pub fn app_version(mut self, version: String) -> Self {
+        self.app_version = Some(version);
+        self
+    }
+
+    /// Build the SekaiClient
+    ///
+    /// If app_hash or app_version were not set,
+    /// the values will be fetched from the internet.
+    pub async fn build(self) -> Result<SekaiClient<T>, Error> {
+        let (app_hash, app_version) =
+            if let (Some(app_hash), Some(app_version)) = (&self.app_hash, &self.app_version) {
+                (app_hash.clone(), app_version.clone())
+            } else {
+                let app_info = SekaiClient::get_app_version(&self.url_provider).await?;
+                (
+                    self.app_hash.unwrap_or(app_info.app_hash),
+                    self.app_version.unwrap_or(app_info.app_version),
+                )
+            };
+
+        SekaiClient::new(
+            app_hash,
+            app_version,
+            self.aes_config,
+            self.jwt_key,
+            self.platform,
+            self.url_provider,
+        )
+        .await
+    }
 }
 
 #[cfg(test)]
@@ -458,13 +535,20 @@ mod tests {
         Server::Japan.get_jwt_key()
     }
 
+    fn get_app_hash() -> AppInfo {
+        AppInfo {
+            app_hash: "example-app-hash".into(),
+            app_version: "10.0.20".into(),
+        }
+    }
+
     async fn get_client(server_url: String) -> SekaiClient<TestUrlProvider> {
-        SekaiClient::new_with_url_provider(
+        SekaiClient::new(
             "3.9".to_string(),
             "393939".to_string(),
-            Platform::Android,
             get_aes_config(),
             get_jwt_key(),
+            Platform::Android,
             TestUrlProvider::new(server_url),
         )
         .await
@@ -488,6 +572,13 @@ mod tests {
             .mock("GET", "/api/suitemasterfile/1.0.0/test_file")
             .with_status(200)
             .with_body(encrypted_suitemaster_file)
+            .create_async()
+            .await;
+
+        server
+            .mock("GET", "/apphash")
+            .with_status(200)
+            .with_body(serde_json::to_string(&get_app_hash()).unwrap())
             .create_async()
             .await;
 
@@ -581,5 +672,16 @@ mod tests {
             response, decrypted_suitemaster_file,
             "response from server and computed value should be the same"
         )
+    }
+
+    #[tokio::test]
+    async fn test_get_app_info() {
+        let server = get_server().await;
+
+        let response = SekaiClient::get_app_version(&TestUrlProvider::new(server.url()))
+            .await
+            .unwrap();
+
+        assert_eq!(response, get_app_hash());
     }
 }
