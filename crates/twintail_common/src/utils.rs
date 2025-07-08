@@ -1,5 +1,3 @@
-pub mod progress;
-
 /// The default amount of parallelism to use.
 const DEFAULT_PARALLELISM: usize = 12;
 

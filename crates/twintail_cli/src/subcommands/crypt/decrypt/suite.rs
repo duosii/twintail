@@ -1,11 +1,10 @@
 use std::time::Duration;
 
-use crate::{Error, color, strings};
+use crate::{Error, color, strings, progress::ProgressBar};
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
 use twintail_common::{
-    models::{OptionalBuilder, enums::Server},
-    utils::progress::ProgressBar,
+    models::{OptionalBuilder, enums::Server}
 };
 use twintail_core::{
     config::crypt_config::CryptConfig,

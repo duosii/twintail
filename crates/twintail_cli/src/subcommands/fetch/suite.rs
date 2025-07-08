@@ -7,14 +7,13 @@ use twintail_common::{
         OptionalBuilder,
         enums::{Platform, Server},
     },
-    utils::progress::ProgressBar,
 };
 use twintail_core::{
     config::fetch_config::FetchConfig,
     fetch::{DownloadSuiteState, FetchState, Fetcher},
 };
 
-use crate::{Error, color, strings};
+use crate::{Error, color, strings, progress::ProgressBar};
 
 #[derive(Debug, Args)]
 pub struct SuiteArgs {

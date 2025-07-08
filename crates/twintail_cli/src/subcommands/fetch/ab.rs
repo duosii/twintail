@@ -11,7 +11,6 @@ use twintail_common::{
         OptionalBuilder,
         enums::{Platform, Server},
     },
-    utils::progress::ProgressBar,
 };
 use twintail_core::{
     config::{download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
@@ -19,7 +18,7 @@ use twintail_core::{
 };
 use twintail_sekai::models::AssetbundleInfo;
 
-use crate::{Error, color, strings};
+use crate::{Error, color, strings, progress::ProgressBar};
 
 #[derive(Debug, Args)]
 pub struct AbArgs {
