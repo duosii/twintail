@@ -1,13 +1,13 @@
 use clap::Args;
 use std::io::{Write, stdin, stdout};
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{models::{enums::Server, OptionalBuilder}};
+use twintail_common::models::{OptionalBuilder, enums::Server};
 use twintail_core::{
     config::fetch_config::FetchConfig,
     fetch::{FetchState, Fetcher, GetUserInheritState, WriteUserSaveDataState},
 };
 
-use crate::{Error, color, strings, progress::ProgressBar};
+use crate::{Error, color, progress::ProgressBar, strings};
 
 #[derive(Debug, Args)]
 pub struct SaveArgs {

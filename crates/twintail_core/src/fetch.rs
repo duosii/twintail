@@ -99,7 +99,9 @@ impl<P: UrlProvider> Fetcher<P> {
             config.url_provider.clone(),
         )
         .map(config.hash.clone(), |builder, hash| builder.app_hash(hash))
-        .map(config.version.clone(), |builder, hash| builder.app_version(hash))
+        .map(config.version.clone(), |builder, hash| {
+            builder.app_version(hash)
+        })
         .build()
         .await?;
 

@@ -100,6 +100,7 @@ impl UrlProvider for JapanUrlProvider {
     }
 
     fn apphash(&self) -> String {
-        "https://raw.githubusercontent.com/mos9527/sekai-apphash/refs/heads/master/jp/apphash.json".into()
+        "https://raw.githubusercontent.com/mos9527/sekai-apphash/refs/heads/master/jp/apphash.json"
+            .into()
     }
 }

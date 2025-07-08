@@ -1,8 +1,8 @@
 mod color;
 mod error;
+mod progress;
 mod strings;
 mod subcommands;
-mod progress;
 
 use color::get_clap_styles;
 pub use error::Error;

@@ -6,11 +6,9 @@ use tokio::{
     sync::watch::Receiver,
     time::Instant,
 };
-use twintail_common::{
-    models::{
-        OptionalBuilder,
-        enums::{Platform, Server},
-    },
+use twintail_common::models::{
+    OptionalBuilder,
+    enums::{Platform, Server},
 };
 use twintail_core::{
     config::{download_ab_config::DownloadAbConfig, fetch_config::FetchConfig},
@@ -18,7 +16,7 @@ use twintail_core::{
 };
 use twintail_sekai::models::AssetbundleInfo;
 
-use crate::{Error, color, strings, progress::ProgressBar};
+use crate::{Error, color, progress::ProgressBar, strings};
 
 #[derive(Debug, Args)]
 pub struct AbArgs {

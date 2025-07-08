@@ -39,9 +39,7 @@ impl FetchConfig<ServerUrlProvider> {
     ///
     /// Uses a default Japan url provider.
     pub fn new() -> Self {
-        Self::new_with_provider(
-            ServerUrlProvider::Japan(JapanUrlProvider::default()),
-        )
+        Self::new_with_provider(ServerUrlProvider::Japan(JapanUrlProvider::default()))
     }
 
     /// Create a default builder for the CryptConfig struct.

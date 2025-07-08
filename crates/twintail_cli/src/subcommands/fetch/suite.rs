@@ -2,18 +2,16 @@ use std::time::Duration;
 
 use clap::Args;
 use tokio::{sync::watch::Receiver, time::Instant};
-use twintail_common::{
-    models::{
-        OptionalBuilder,
-        enums::{Platform, Server},
-    },
+use twintail_common::models::{
+    OptionalBuilder,
+    enums::{Platform, Server},
 };
 use twintail_core::{
     config::fetch_config::FetchConfig,
     fetch::{DownloadSuiteState, FetchState, Fetcher},
 };
 
-use crate::{Error, color, strings, progress::ProgressBar};
+use crate::{Error, color, progress::ProgressBar, strings};
 
 #[derive(Debug, Args)]
 pub struct SuiteArgs {
