@@ -136,8 +136,26 @@ pub struct UserInheritJWT {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum AppPackage {
+    ProductionAndroid,
+    ProductionIos,
+}
+
+impl From<Platform> for AppPackage {
+    fn from(platform: Platform) -> Self {
+        match platform {
+            Platform::Android => Self::ProductionAndroid,
+            Platform::Ios => Self::ProductionIos,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct AppInfo {
     pub app_hash: String,
     pub app_version: String,
 }
+
+pub type AppInfoList = HashMap<AppPackage, AppInfo>;

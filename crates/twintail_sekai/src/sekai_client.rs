@@ -3,8 +3,8 @@ use crate::{
     Error,
     headers::{header_name, header_value},
     models::{
-        AppInfo, AssetbundleInfo, GameVersion, SystemInfo, UserAuthRequest, UserAuthResponse,
-        UserInherit, UserInheritJWT, UserRequest, UserSignup,
+        AppInfo, AppInfoList, AppPackage, AssetbundleInfo, GameVersion, SystemInfo,
+        UserAuthRequest, UserAuthResponse, UserInherit, UserInheritJWT, UserRequest, UserSignup,
     },
 };
 use hmac::Hmac;
@@ -26,6 +26,7 @@ mod error_string {
     pub const INVALID_INHERIT_CREDENTIALS: &str = "could not find any account with the provided transfer id or password. ensure that both values are correct";
     pub const NOT_FOUND_USER_AUTH: &str = "(404: not found) error when logging in to an account. ensure that the app version and hash values are correct";
     pub const GET_APP_INFO: &str = "error when attempting to retrieve the latest app info";
+    pub const GET_APP_INFO_PACKAGE: &str = "app info for provided package not found";
 }
 
 /// An API client that interfaces with the game's servers, providing various functions to query endpoints.
@@ -429,15 +430,23 @@ impl<T: UrlProvider> SekaiClient<T> {
 
     /// Gets the game's current app hash & app version from
     /// [https://github.com/mos9527/sekai-apphash]
-    pub async fn get_app_version(url_provider: &T) -> Result<AppInfo, Error> {
+    pub async fn get_app_version(url_provider: &T, package: AppPackage) -> Result<AppInfo, Error> {
         let request = Client::new().get(url_provider.apphash());
 
         match request.send().await?.error_for_status() {
             Ok(response) => {
                 // parse body
                 let bytes = response.bytes().await?;
-                let app_hash = serde_json::from_slice(&bytes)?;
-                Ok(app_hash)
+                let mut app_info_list: AppInfoList = serde_json::from_slice(&bytes)?;
+                if let Some(app_hash) = app_info_list.remove(&package) {
+                    Ok(app_hash)
+                } else {
+                    Err(Error::InvalidRequest(format!(
+                        "{}: {:?}",
+                        error_string::GET_APP_INFO_PACKAGE,
+                        package
+                    )))
+                }
             }
             Err(err) => Err(Error::InvalidRequest(format!(
                 "{}: {}",
@@ -498,7 +507,8 @@ impl<T: UrlProvider> SekaiClientBuilder<T> {
             if let (Some(app_hash), Some(app_version)) = (&self.app_hash, &self.app_version) {
                 (app_hash.clone(), app_version.clone())
             } else {
-                let app_info = SekaiClient::get_app_version(&self.url_provider).await?;
+                let app_info =
+                    SekaiClient::get_app_version(&self.url_provider, self.platform.into()).await?;
                 (
                     self.app_hash.unwrap_or(app_info.app_hash),
                     self.app_version.unwrap_or(app_info.app_version),
@@ -519,6 +529,8 @@ impl<T: UrlProvider> SekaiClientBuilder<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::{models::AppVersion, url::test_provider::TestUrlProvider};
     use twintail_common::models::enums::Server;
@@ -535,11 +547,16 @@ mod tests {
         Server::Japan.get_jwt_key()
     }
 
-    fn get_app_hash() -> AppInfo {
-        AppInfo {
-            app_hash: "example-app-hash".into(),
-            app_version: "10.0.20".into(),
-        }
+    fn get_app_hash() -> AppInfoList {
+        let mut map = HashMap::new();
+        map.insert(
+            AppPackage::ProductionAndroid,
+            AppInfo {
+                app_hash: "example-app-hash".into(),
+                app_version: "10.0.20".into(),
+            },
+        );
+        map
     }
 
     async fn get_client(server_url: String) -> SekaiClient<TestUrlProvider> {
@@ -678,10 +695,16 @@ mod tests {
     async fn test_get_app_info() {
         let server = get_server().await;
 
-        let response = SekaiClient::get_app_version(&TestUrlProvider::new(server.url()))
-            .await
-            .unwrap();
+        let response = SekaiClient::get_app_version(
+            &TestUrlProvider::new(server.url()),
+            AppPackage::ProductionAndroid,
+        )
+        .await
+        .unwrap();
 
-        assert_eq!(response, get_app_hash());
+        assert_eq!(
+            &response,
+            get_app_hash().get(&AppPackage::ProductionAndroid).unwrap()
+        );
     }
 }
