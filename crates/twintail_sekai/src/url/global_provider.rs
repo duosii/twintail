@@ -49,7 +49,7 @@ impl UrlProvider for GlobalUrlProvider {
         platform: &Platform,
     ) -> String {
         format!(
-            "https://assetbundle-info.urls-en.com{}/{}/os/{}",
+            "https://n-production-846c90c1-assetbundle-info.sekai-en.com{}/{}/os/{}",
             urls::assetbundle::INFO,
             asset_version,
             platform.to_string()
@@ -57,7 +57,7 @@ impl UrlProvider for GlobalUrlProvider {
     }
 
     fn assetbundle(&self, _: &str, assetbundle_path: &str) -> String {
-        format!("https://assetbundle.urls-en.com/{}", assetbundle_path)
+        format!("https://n-production-846c90c1-assetbundle.sekai-en.com/{}", assetbundle_path)
     }
 
     fn assetbundle_path(
